@@ -40,7 +40,16 @@ pipeline {
     }
     stage('deploy to sandbox') {
       steps {
-        kubernetesDeploy(enableConfigSubstitution: true, deleteResource: false, configs: 'deploy/prover/sandbox/**', kubeconfigId: 'kubeconfig')
+         container ('maven-jdk11') {
+                          withCredentials([
+                              kubeconfigFile(
+                              credentialsId: 'kubeconfig',
+                              variable: 'KUBECONFIG')
+                              ]) {
+                              sh 'envsubst < deploy/prover/sandbox/deployment.yaml | kubectl apply -f -'
+                              sh 'envsubst < deploy/prover/sandbox/service.yaml | kubectl apply -f -'
+                          }
+                     }
       }
     }
 
