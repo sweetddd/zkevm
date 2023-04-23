@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $APP_NAME-node-0-sandbox
+  namespace: chain-sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: $APP_NAME-node-0-sandbox
+  template:
+    metadata:
+      labels:
+        app: $APP_NAME-node-0-sandbox
+    spec:
+      containers:
+      - name: $APP_NAME-node-0-sandbox
+        command: [ "/bin/bash" ]
+        args: [ "-c","./target/debug/prover_rpcd --bind 127.0.0.1:8546 " ]
+        image:  $REGISTRY/$APP_NAME:SNAPSHOT-$BUILD_NUMBER
+        resources:
+          requests:
+            cpu: 0.1
+            memory: 0.5Gi
+          limits:
+            cpu: 0.8
+            memory: 1Gi
+        volumeMounts:
+        - name: host-time
+          mountPath: /etc/localtime
+        - name: data
+          mountPath: /data/blocks
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 9900
+          - containerPort: 9934
+          - containerPort: 30333
+        env:
+          - name: TZ
+            value: GMT
+          - name: RUST_LOG
+            value: pallet_evm=debug,pallet_ethereum=debug
+      volumes:
+      - name: host-time
+        hostPath:
+          path: /etc/localtime
+      - name: data
+        persistentVolumeClaim:
+          claimName: vmchain-ssd-pvc
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: app
+                    operator: In
+                    values:
+                      - $APP_NAME-node-0-sandbox
+                      - $APP_NAME-node-1-sandbox
+                      - $APP_NAME-node-2-sandbox
+              topologyKey: "kubernetes.io/hostname"
+  strategy:
+    type: Recreate

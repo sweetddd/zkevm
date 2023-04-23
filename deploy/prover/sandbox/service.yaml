@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: $APP_NAME-node-0-sandbox
+  namespace: chain-sandbox
+spec:
+  ports:
+  - name: ws
+    port: 9900
+    targetPort: 9900
+    protocol: TCP
+  - name: https
+    port: 9934
+    targetPort: 9934
+    protocol: TCP
+  - name: tcp
+    port: 30333
+    targetPort: 30333
+    protocol: TCP
+  selector:
+    app: $APP_NAME-node-0-sandbox
+  sessionAffinity: None
+#  type: NodePort
+  type: ClusterIP
