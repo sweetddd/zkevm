@@ -1,0 +1,10 @@
+*
+!common/
+!coordinator/
+!prover/
+!dev/
+!docker/
+!Cargo.lock
+!Cargo.toml
+!rust-toolchain
+!.git/

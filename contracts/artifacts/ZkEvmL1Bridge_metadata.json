@@ -1,0 +1,594 @@
+{
+	"compiler": {
+		"version": "0.8.18+commit.87f61d96"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "bytes32",
+						"name": "blockHash",
+						"type": "bytes32"
+					}
+				],
+				"name": "BlockFinalized",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [],
+				"name": "BlockSubmitted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "blockHash",
+						"type": "bytes32"
+					},
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "stateRoot",
+						"type": "bytes32"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "timestamp",
+						"type": "uint256"
+					}
+				],
+				"name": "ForeignBridgeStateImported",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "bytes32",
+						"name": "id",
+						"type": "bytes32"
+					}
+				],
+				"name": "MessageDelivered",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "fee",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "deadline",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "nonce",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "MessageDispatched",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "bytes32",
+						"name": "id",
+						"type": "bytes32"
+					}
+				],
+				"name": "MessageDropped",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "witness",
+						"type": "bytes"
+					}
+				],
+				"name": "buildCommitment",
+				"outputs": [
+					{
+						"internalType": "uint256[]",
+						"name": "result",
+						"type": "uint256[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "fee",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "deadline",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "nonce",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "proof",
+						"type": "bytes"
+					}
+				],
+				"name": "deliverMessageWithProof",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "fee",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "deadline",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "nonce",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "dispatchMessage",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "messageHash",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "payable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "value",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "fee",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "deadline",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "nonce",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "proof",
+						"type": "bytes"
+					}
+				],
+				"name": "dropMessage",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "proof",
+						"type": "bytes"
+					}
+				],
+				"name": "finalizeBlock",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "val",
+						"type": "bytes32"
+					}
+				],
+				"name": "getTimestampForStorageRoot",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "blockHeader",
+						"type": "bytes"
+					},
+					{
+						"internalType": "bytes",
+						"name": "accountProof",
+						"type": "bytes"
+					}
+				],
+				"name": "importForeignBridgeState",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_blockHash",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "_stateRoot",
+						"type": "bytes32"
+					}
+				],
+				"name": "initGenesis",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "messageOrigin",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "multicall",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"name": "stateRoots",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes",
+						"name": "witness",
+						"type": "bytes"
+					}
+				],
+				"name": "submitBlock",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"dispatchMessage(address,uint256,uint256,uint256,bytes)": {
+					"params": {
+						"data": "The calldata to be used when calling `to`.",
+						"deadline": "This message is valid **before** the deadline and can be dropped **after** the deadline. In seconds since Unix Epoch.",
+						"fee": "Amount to be paid to the account that delivers this message on the destination chain. Deducted from `msg.value`.",
+						"nonce": "A random value that can be used to avoid collisions for identical but distinct messages. Has no other purpose.",
+						"to": "The address of the account/contract to call and transfer `msg.value - fee`."
+					},
+					"returns": {
+						"messageHash": "`keccak256(abi.encode(msg.sender, to, value, fee, deadline, nonce, data))`. Please note that only one message with the same hash can be dispatched at the same time. A message hash is not unique in the sense that it can reappear once a previous message was delivered or dropped."
+					}
+				},
+				"finalizeBlock(bytes)": {
+					"details": "proof layout (bytes) - block hash - verifier address (TODO: should be checked against allowed verifier addresses) - proof instance - first 5 elements commitment - proof transcript"
+				},
+				"initGenesis(bytes32,bytes32)": {
+					"details": "For testing purposes"
+				}
+			},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"deliverMessageWithProof(address,address,uint256,uint256,uint256,uint256,bytes,bytes)": {
+					"notice": "Verifies the proof and executes the message."
+				},
+				"dispatchMessage(address,uint256,uint256,uint256,bytes)": {
+					"notice": "Dispatch a message to the opposite chain."
+				},
+				"dropMessage(address,address,uint256,uint256,uint256,uint256,bytes,bytes)": {
+					"notice": "Drops a expired message and returns ETH - if any to `from`."
+				},
+				"messageOrigin()": {
+					"notice": "Returns the address of the caller that dispatched the message."
+				},
+				"multicall()": {
+					"notice": "Used to repeatly call to self. Expects [length of bytes (4 bytes), bytes, ...] appended directly after the function signature. Reverts as soon a call fails."
+				}
+			},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/ZkEvmL1Bridge.sol": "ZkEvmL1Bridge"
+		},
+		"evmVersion": "paris",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/Multicall.sol": {
+			"keccak256": "0xedb071093c13314aed4d542a6eff93c01213c21d038c9a5b4ff5352e3efc2cc8",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://45d7607553432cfb9de00bcf0768bb6e03efc905bcef4ab64ebe03af13f99eb6",
+				"dweb:/ipfs/QmdW5vaNTPw3iXTsx1FvKmrDrTGZWgt6Kzmt6R4CcSaCqe"
+			]
+		},
+		"contracts/ZkEvmBridgeEvents.sol": {
+			"keccak256": "0x588ca788ebe74053a62312e9aebed6b1b289ca20ca772553fe9c4081610025ca",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://55fbd8fd8427ef7d786227956b1920298fcb679f989586372959d4dfadbe3042",
+				"dweb:/ipfs/QmZ8YuVPHjY3g6cf32zSF96XJSrtNPYgEbbYE6tWio3vW1"
+			]
+		},
+		"contracts/ZkEvmL1Bridge.sol": {
+			"keccak256": "0xf70aa9e921b7a8efc2114f470fddc89864d4883dc30c9bb1907416c7a11689d3",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://f8fcf47bb658da17fb247ec013a4e2e1986256c299b472979fdf1b071447868f",
+				"dweb:/ipfs/QmUXDcUfL3FafTGVFD5VeSrFeDp6p3agmJpT5DgokHtDdf"
+			]
+		},
+		"contracts/ZkEvmMagicNumbers.sol": {
+			"keccak256": "0x27d4a77d3c61a12dfaf9bcdc31657aac01531ad802c386b485d8b8965216cd2e",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://b5f3a3b22974f420cf46dd4cf7f9565bc27437f11fbd3e296c5517416c17a4df",
+				"dweb:/ipfs/QmV3KTMivzk8QpSQw23b9NYg2qtjqC81HKNVDizsmT6FBy"
+			]
+		},
+		"contracts/ZkEvmMessageDelivererBase.sol": {
+			"keccak256": "0xeff773fe82645e18d778072ce174c47cdd33af84d9d41dd8ae8e1e4155b432dd",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://c4c98f11a81c8d968e0c04c27105015cdca26aa69faa50c1a6d66427350b3b3a",
+				"dweb:/ipfs/QmSiFyZcHbLyfWcxC63fpMDMWFRYyJQTYAJdxn2Emk1mh9"
+			]
+		},
+		"contracts/ZkEvmMessageDispatcherBase.sol": {
+			"keccak256": "0x2c7626585f17adf15b25625b147750cdac343384fdc0b12ebcd844a9f461dfce",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://d0aa6be073c2401730cbcd819179b8224bb1519ea27084b5bf4c0b7753b15397",
+				"dweb:/ipfs/QmdYS3Fv9EkHgYPMLTLFdxZ4S2UhzwBHYbF16Tu4ayEx6v"
+			]
+		},
+		"contracts/ZkEvmStorage.sol": {
+			"keccak256": "0xc3c2e3ebb304ab4272ebca0cf820c1b5c35b6afec0999c3ec92b03c24500109f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://e7ff5e22c48126d9c1d7bda528f6438d69bb4177d6a7a22dbc3a2344aa3fe392",
+				"dweb:/ipfs/QmeeWw269ichoMQ3uBjE2AL3eygir3FDsBVJJ382yJoEC6"
+			]
+		},
+		"contracts/ZkEvmUtils.sol": {
+			"keccak256": "0x799eeb410afb3a843600616f5bd89b0952a15eeec5e6468b6de3176fbfc1d545",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://357e50d91000af53851d76c6bcc38ae7e4b5ac112bb6b9fc0f7608e86f29a51b",
+				"dweb:/ipfs/QmXtpkVJWzVKmKxypXHYF1UAyHkuEiYqpyDksAQUNVXPYx"
+			]
+		},
+		"contracts/generated/CircuitConfig.sol": {
+			"keccak256": "0xb6f5fcf178fd2cfdde2c5a127070ea075bb90d3e24db5dcbc1cfd1eb00ba368f",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://bcaf0ec5004e0fcf8e8a4da3438f1c83addacb78e158c47f66fc6a8c0f36a2c7",
+				"dweb:/ipfs/QmWm28xzAmtj1fhiWTWfDm1LCWk3Bsozzx4eHea66jeB6E"
+			]
+		},
+		"contracts/generated/HeaderUtil.sol": {
+			"keccak256": "0xfa039d38cc63f4ec659471f5eb728ff65c3f342c6dc5a22701f6971a99a9464c",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://5e3169215837e48e260d01450b674deb7bf87bee3aa1bdf5e2ee10f1fa384958",
+				"dweb:/ipfs/QmP7dWz3CrXZaQDQqwaBuSJ4FgoTGcMW9uJwUR3d3s9KBD"
+			]
+		},
+		"contracts/generated/PatriciaAccountValidator.sol": {
+			"keccak256": "0xf0bd95570953ae8e7a5e834540e50ad7022f6d52bd61847af413f98f3307e372",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://cb0ef065898ed6532a706a6ecb49aac379b5bcb5983f26f0a66de503498c3fe3",
+				"dweb:/ipfs/QmXqueW4uvvkdECHDXNsY1BVDdLEtT5FGEubgbm7gGvbNP"
+			]
+		},
+		"contracts/generated/PatriciaStorageValidator.sol": {
+			"keccak256": "0x29d69d1ffdc8786da00a0bf9ae16229039854c62cf510f97bf5d0f5d7a7e49a7",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://cb0f9a80def3ee472ddf4b5cd9ef46d8b0d6e4fd53de281c404924bec457e926",
+				"dweb:/ipfs/QmPzoW6qoDyrN5LTX5S6HKQrYjgA1SjWabn2ApHYvZqNG4"
+			]
+		},
+		"contracts/generated/PublicInput.sol": {
+			"keccak256": "0x6ba3f60525677790761d239a4d12e791bf3e7b3cca5d1ed827938ae67d876d59",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://71c88be814e944bd0da0c4649e9e435d769d87a6348daf9866fcd736ffcb2290",
+				"dweb:/ipfs/QmViokppkVnddu9xthHCfWrHPeYuJeapWub8W7UmybKv3N"
+			]
+		},
+		"contracts/interfaces/IZkEvmMessageDelivererBase.sol": {
+			"keccak256": "0x5a5cf8575f17d237861dbc4ed17a377e626e09939a9832a4070adf0851950750",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://81e2c2969eb2b34c137bfb4ee021aa11a57810e2e4c84f9c09da226b3cf6219d",
+				"dweb:/ipfs/QmZGZqoKSx8JqiCHWK4hhqY8ELPYDfnc2Px4PaqcqSRjSe"
+			]
+		},
+		"contracts/interfaces/IZkEvmMessageDelivererWithProof.sol": {
+			"keccak256": "0x5bb7b09e41b0668dd0a32ea3511425833267e4e675a8b78edb85cf56aad142ae",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://c4b7504c3b4e972ffc0fa75a8a9672d2be2e6fa0280e506c614425439626a8bc",
+				"dweb:/ipfs/QmdfD8s7niZxNAYQnKKoacsf2sSsLQ4YCh6Wi3BfD8q61i"
+			]
+		},
+		"contracts/interfaces/IZkEvmMessageDispatcher.sol": {
+			"keccak256": "0xc480b06daa9ed24165e8baf42b36bd14ba51680c2f8fe4267db077c1f3a647d0",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://29852c1bdef4aa3d5b6878cdefd074f397c8c916ca72d2dfd6b6b572a128c9c6",
+				"dweb:/ipfs/QmZryhucSbpA5dpnzHwT6jqnMLjxis4h6qwAAAjtwXdwxF"
+			]
+		}
+	},
+	"version": 1
+}
