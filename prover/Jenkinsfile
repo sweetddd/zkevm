@@ -40,7 +40,7 @@ pipeline {
     }
     stage('deploy to sandbox') {
       steps {
-         container ('maven-jdk11') {
+         container ('rust') {
                           withCredentials([
                               kubeconfigFile(
                               credentialsId: 'kubeconfig',
