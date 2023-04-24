@@ -20,10 +20,10 @@ spec:
         image:  $REGISTRY/$APP_NAME:SNAPSHOT-$BUILD_NUMBER
         resources:
           requests:
-            cpu: 64
+            cpu: '64'
             memory: 256Gi
           limits:
-            cpu: 16
+            cpu: '16'
             memory: 128Gi
         volumeMounts:
         - name: host-time
