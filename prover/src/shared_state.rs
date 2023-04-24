@@ -517,6 +517,8 @@ impl SharedState {
             .await
         };
 
+        log::error!("task_result_new: {:#?}", task_result);
+
         // convert the JoinError to string - if applicable
         let task_result: Result<Proofs, String> = match task_result {
             Err(err) => match err.is_panic() {
@@ -524,10 +526,14 @@ impl SharedState {
                     let panic = err.into_panic();
 
                     if let Some(msg) = panic.downcast_ref::<&str>() {
+                        log::error!("proof error {:?}",msg);
                         Err(msg.to_string())
                     } else if let Some(msg) = panic.downcast_ref::<String>() {
+                        log::error!("proof error {:?}",msg);
+
                         Err(msg.to_string())
                     } else {
+                        log::error!("proof error");
                         Err("unknown panic".to_string())
                     }
                 }
