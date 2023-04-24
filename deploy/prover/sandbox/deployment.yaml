@@ -16,15 +16,15 @@ spec:
       containers:
       - name: $APP_NAME-sandbox
         command: [ "/bin/bash" ]
-        args: [ "-c","./target/release/prover_rpcd --bind 127.0.0.1:8546 " ]
+        args: [ "-c","./target/release/prover_rpcd --bind 0.0.0.0:8546 " ]
         image:  $REGISTRY/$APP_NAME:SNAPSHOT-$BUILD_NUMBER
         resources:
           requests:
-            cpu: 2
-            memory: 4Gi
+            cpu: 64
+            memory: 256Gi
           limits:
-            cpu: 8
-            memory: 32Gi
+            cpu: 16
+            memory: 128Gi
         volumeMounts:
         - name: host-time
           mountPath: /etc/localtime
@@ -50,14 +50,13 @@ spec:
       restartPolicy: Always
       dnsPolicy: ClusterFirst
       affinity:
-        podAntiAffinity:
+        nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchExpressions:
-                  - key: app
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
                     operator: In
                     values:
-                      - $APP_NAME-sandbox
-              topologyKey: "kubernetes.io/hostname"
+                      - node47
   strategy:
     type: Recreate
