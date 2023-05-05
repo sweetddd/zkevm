@@ -1,13 +1,15 @@
 mod common;
 
+use std::str::FromStr;
 use crate::common::get_shared_state;
-use ethers_core::abi::AbiParser;
+use ethers_core::abi::{AbiEncode, AbiParser, Token};
 use ethers_core::abi::Tokenizable;
-use ethers_core::types::Address;
+use ethers_core::types::{Address, H256};
 use ethers_core::types::Bytes;
 use ethers_core::types::TransactionReceipt;
 use ethers_core::types::U256;
 use ethers_core::types::U64;
+use ethers_core::utils::hex;
 use zkevm_common::json_rpc::jsonrpc_request;
 
 #[ignore]
@@ -78,6 +80,76 @@ async fn hop_deposit() {
     }
 
     finalize_chain!(shared_state);
+}
+
+#[ignore]
+#[tokio::test]
+async fn test1() {
+    // address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof
+    let abi = AbiParser::default()
+        .parse(&[
+            "event BlockSubmitted()",
+            "event BlockFinalized(bytes32 blockHash)",
+            "event MessageDispatched(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
+            "event MessageDelivered(bytes32 id)",
+            "function submitBlock(bytes)",
+            "function finalizeBlock(bytes proof)",
+            "function deliverMessageWithProof1(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
+            "function deliverMessageWithProof8(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
+            "function deliverMessageWithProof3(address from, address to, uint256 value)",
+            "function deliverMessageWithProof4(address from, address to, uint256 value, uint256 fee)",
+            "function deliverMessageWithProof5(address from, address to, uint256 value, uint256 fee, uint256 deadline)",
+            "function deliverMessageWithProof6(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce)",
+            "function deliverMessageWithProof7(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
+            "function stateRoots(bytes32 blockHash) returns (bytes32)",
+            "function importForeignBlock(uint256 blockNumber, bytes32 blockHash)",
+            "function initGenesis(bytes32 blockHash, bytes32 stateRoot)",
+            "function buildCommitment(bytes) returns (uint256[])",
+            "function importForeignBridgeState(bytes, bytes)",
+            "function multicall()",
+            "function getTimestampForStorageRoot(bytes32 storageRoot) returns (uint256)",
+        ])
+        .expect("parse abi");
+
+    pub struct MessageBeacon {
+        pub id: H256,
+        pub from: Address,
+        pub to: Address,
+        pub value: U256,
+        pub fee: U256,
+        pub deadline: U256,
+        pub nonce: U256,
+        pub calldata: Vec<u8>,
+    }
+    let msg = MessageBeacon{
+        id : H256::zero(),
+        from : Address::from_str("0x9f883b12fd0692714c2f28be6c40d3afdb9081d3").unwrap(),
+        to: Address::from_str("0x0000000000000000000000000000000000000000").unwrap(),
+        value: U256::from(999999999999999999u128),
+        fee: U256::from(1),
+        deadline: U256::from(18446744073709551615u128),
+        nonce: U256::from(17341096732358035090u128),
+        calldata: Vec::new(),
+    };
+    let calldata  =
+        abi
+        .function("deliverMessageWithProof4")
+        .unwrap()
+        .encode_input(&[
+            msg.from.into_token(),
+            msg.to.into_token(),
+            msg.value.into_token(),
+            msg.fee.into_token(),
+            // msg.deadline.into_token(),
+            // msg.nonce.into_token(),
+            // Token::Bytes(msg.calldata),
+            // Bytes::default().into_token(),
+        ])
+        .expect("calldata");
+
+    let calldata_bytes = Bytes::from(calldata.clone());
+    println!("sss {}",calldata_bytes)
+
 }
 
 #[ignore]

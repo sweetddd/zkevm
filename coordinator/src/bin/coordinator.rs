@@ -1,3 +1,4 @@
+use std::env;
 use clap::Parser;
 use coordinator::config::Config;
 use coordinator::faucet::Faucet;
@@ -16,6 +17,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::Duration;
 use tokio::task::spawn;
 use tokio::time::sleep;
+use zkevm_common::db_utils::{KVStore, RocksDB};
 use zkevm_common::json_rpc::JsonRpcError;
 use zkevm_common::json_rpc::JsonRpcRequest;
 use zkevm_common::json_rpc::JsonRpcResponse;
@@ -353,8 +355,9 @@ async fn handle_method(
 async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
+    let db: RocksDB = KVStore::init(env::var("COORDINATOR_DB_PATH").unwrap().as_str());
     let config = Config::parse();
-    let shared_state = SharedState::new(&config).await;
+    let shared_state = SharedState::new(&config,&db).await;
 
     shared_state.init().await;
 
@@ -368,6 +371,8 @@ async fn main() {
 
     {
         let addr = config.listen;
+        let https = hyper_tls::HttpsConnector::new();
+        let client = hyper::Client::builder().build::<_, hyper::Body>(https);
         let client = hyper::Client::new();
         let shared_state = shared_state.clone();
         let faucet = faucet.clone();
@@ -392,6 +397,8 @@ async fn main() {
 
     {
         let ctx = shared_state.clone();
+
+
         let h1 = spawn(async move {
             let client = hyper::Client::new();
             loop {
@@ -439,7 +446,7 @@ async fn main() {
                     log::error!("task: {}", err);
                 }
 
-                sleep(Duration::from_millis(100)).await;
+                sleep(Duration::from_millis(10000)).await;
             }
         });
 

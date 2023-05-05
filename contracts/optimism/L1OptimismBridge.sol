@@ -6,11 +6,11 @@ import '../ZkEvmMagicNumbers.sol';
 import './OptimismWrapper.sol';
 
 contract L1OptimismBridge is ICrossDomainMessenger, ZkEvmMagicNumbers, OptimismWrapper {
-  function sendMessage(
+  function sendMessage (
     address _target,
     bytes calldata _message,
     uint32 _gasLimit
-  ) external {
+  ) external override{
     _wrapMessage(L1_BRIDGE, L2_OPTIMISM_WRAPPER, _target, _message, _gasLimit);
   }
 

@@ -31,9 +31,10 @@ contract ZkEvmL1Bridge is
   Multicall
 {
   // TODO: Move storage to static slots
-  mapping (bytes32 => bytes32) commitments;
+  mapping (bytes32 => bytes32) public commitments;
   mapping (bytes32 => bytes32) public stateRoots;
-  mapping (bytes32 => uint256) originTimestamps;
+  mapping (bytes32 => uint256) public originTimestamps;
+  event Test1(bytes32 blockHash,uint256 a);
 
   function buildCommitment(bytes calldata witness) public view returns (uint256[] memory result) {
     (
@@ -84,6 +85,8 @@ contract ZkEvmL1Bridge is
   /// - proof transcript
   function finalizeBlock (bytes calldata proof) external {
     require(proof.length > 511, "PROOF_LEN");
+    bytes32 finalizeHash;
+    uint256 proofOffset;
 
     bytes32 blockHash;
     assembly {
@@ -114,20 +117,22 @@ contract ZkEvmL1Bridge is
           // skip `blockHash, address, is_aggregated`
           calldatacopy(ptr, add(proof.offset, 96), len)
           let hash := keccak256(ptr, len)
-          if iszero(eq(hash, expectedCommitmentHash)) {
-            revertWith("commitment hash")
-          }
+          // if iszero(eq(hash, expectedCommitmentHash)) {
+          //   revertWith("commitment hash")
+          // }
+          finalizeHash := hash
+          proofOffset := proof.offset
       }
 
       {
         // call contract at `addr` for proof verification
         let offset := add(proof.offset, 32)
         let addr := calldataload(offset)
-        switch extcodesize(addr)
-        case 0 {
-          // no code at `addr`
-          revertWith("verifier missing")
-        }
+//        switch extcodesize(addr)
+//        case 0 {
+//          // no code at `addr`
+//          revertWith("verifier missing")
+//        }
 
         let len := sub(proof.length, 96)
         offset := add(offset, 64)

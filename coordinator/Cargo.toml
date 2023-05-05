@@ -12,6 +12,7 @@ ethers-core = "0.17.0"
 ethers-signers = "0.17.0"
 hyper = { version = "0.14.16", features = ["client", "server", "http1", "http2", "runtime"] }
 hyper-native-tls="0.3.0"
+hyper-tls="0.5.0"
 log = "0.4.14"
 rand = "0.8.4"
 serde = { version = "1.0.136", features = ["derive"] }
@@ -19,6 +20,8 @@ serde_json = "1.0.78"
 serde_with = "2.0.1"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread", "time"] }
 zkevm_common = { path = "../common" }
+rustc-hex="2.0.1"
+hex = "0.4.2"
 
 [dev-dependencies]
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread", "time", "parking_lot"] }

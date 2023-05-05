@@ -1,7 +1,7 @@
 use crate::structs::*;
 use crate::timeout;
 use ethers_core::types::transaction::eip2930::AccessListWithGasUsed;
-use ethers_core::types::Transaction;
+use ethers_core::types::{Transaction, U64};
 use ethers_core::types::{
     Address, Block, Bytes, Eip1559TransactionRequest, TransactionReceipt, TransactionRequest, H256,
     U256,
@@ -56,17 +56,18 @@ pub async fn sign_transaction_l1(
             .await
             .expect("gasPrice");
 
-    let gas_limit = U256::from(21000000);
+    // let gas_limit = U256::from(33269201);
+    let gas_limit = U256::from(61000000);
 
     let mut tx: Eip1559TransactionRequest = Eip1559TransactionRequest::new()
         .chain_id(wallet.chain_id())
         .from(wallet_addr)
         .nonce(nonce)
         .value(value)
-        .max_priority_fee_per_gas(1u64)
+        .max_priority_fee_per_gas(1000000000u64)
         .max_fee_per_gas(gas_price * 2u64)
         .gas(gas_limit)
-        .data(calldata);
+        .data(calldata.clone());
 
     if to.is_some() {
         tx = tx.to(to.unwrap());
@@ -81,6 +82,7 @@ pub async fn sign_transaction_l1(
     )
     .await
     .expect("eth_createAccessList");
+
     let tx = tx.access_list(access_list.access_list);
     let estimate: U256 = jsonrpc_request_client(
         RPC_REQUEST_TIMEOUT,
@@ -90,6 +92,7 @@ pub async fn sign_transaction_l1(
         [&tx],
     )
     .await?;
+
     let tx = tx.gas(estimate).into();
 
     log::debug!("sending l1 tx: {:?}", tx);
@@ -216,6 +219,52 @@ pub async fn wait_for_tx(
         return Ok(receipt);
     }
 }
+pub async fn wait_for_tx_l2(
+    client: &hyper::Client<HttpConnector>,
+    node_uri: &Uri,
+    raw_tx: &Bytes,
+) -> Result<TransactionReceipt, String> {
+    let tx_hash = H256::from_slice(&keccak256(raw_tx));
+
+    // ignore
+    let resp: Result<H256, String> = jsonrpc_request_client(
+        RPC_REQUEST_TIMEOUT,
+        client,
+        node_uri,
+        "eth_sendRawTransaction",
+        [raw_tx],
+    )
+        .await;
+
+    log::debug!("{:?}", resp);
+
+    loop {
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+        let receipt: Result<TransactionReceipt, String> = jsonrpc_request_client(
+            RPC_REQUEST_TIMEOUT,
+            client,
+            node_uri,
+            "eth_getTransactionReceipt",
+            [&tx_hash],
+        )
+            .await;
+
+        log::debug!("{:?}", receipt);
+
+        if receipt.is_err() {
+            continue;
+        }
+
+        let receipt = receipt.expect("TransactionReceipt");
+
+        if receipt.status.expect("tx.status").as_u64() != 1 {
+            return Err("transaction reverted".to_string());
+        }
+
+        return Ok(receipt);
+    }
+}
 
 pub fn format_block<T>(block: &Block<T>) -> String {
     format!(
@@ -269,6 +318,26 @@ pub async fn get_blocks_between(
     }
 
     ret
+}
+
+
+pub async fn get_blocks_number(
+    client: &hyper::Client<HttpConnector>,
+    uri: &Uri,
+    from: &U64,
+) -> Block<H256> {
+    let mut number_hex = format!("{from:#X}");
+
+    let block: Block<H256> = jsonrpc_request_client(
+        RPC_REQUEST_TIMEOUT,
+        client,
+        uri,
+        "eth_getBlockByNumber",
+        (number_hex,false),
+    )
+        .await
+        .expect("eth_getBlockByHash");
+    block
 }
 
 /// encodes the proof from `eth_getCode` suitable for the Patricia{Account,Storage}Validator contract.

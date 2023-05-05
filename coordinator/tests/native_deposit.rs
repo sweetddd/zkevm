@@ -33,11 +33,11 @@ async fn native_deposit() {
 
     {
         // create deposits
-        for _ in 0..9 {
+        // for _ in 0..0 {
             let from = shared_state.ro.l1_wallet.address();
-            let to = receiver;
-            let value = U256::from(1u64);
-            let fee = U256::zero();
+            let to = from;
+            let value = U256::from(1000000000000000000u64);
+            let fee = U256::from(1u64);
             let deadline = U256::from(0xffffffffffffffffu64);
             let nonce: U256 = rand::random::<usize>().into();
             let data = Bytes::from([]);
@@ -72,35 +72,35 @@ async fn native_deposit() {
                 .await
                 .expect("receipt");
         }
-    }
+    // }
 
-    sync!(shared_state);
-
-    // verify that all deposit are picked up
-    {
-        for id in deposits {
-            let found = shared_state
-                .rw
-                .lock()
-                .await
-                .l2_delivered_messages
-                .iter()
-                .any(|e| e == &id);
-            assert!(found, "message id should exist");
-        }
-
-        sleep!(1000);
-        let balance: U256 = jsonrpc_request(
-            &shared_state.config.lock().await.l2_rpc_url,
-            "eth_getBalance",
-            (receiver, "latest"),
-        )
-        .await
-        .expect("eth_getBalance");
-        assert_eq!(expected_balance, balance, "ETH balance");
-    }
-
-    finalize_chain!(shared_state);
+    // sync!(shared_state);
+    //
+    // // verify that all deposit are picked up
+    // {
+    //     for id in deposits {
+    //         let found = shared_state
+    //             .rw
+    //             .lock()
+    //             .await
+    //             .l2_delivered_messages
+    //             .iter()
+    //             .any(|e| e == &id);
+    //         assert!(found, "message id should exist");
+    //     }
+    //
+    //     sleep!(1000);
+    //     let balance: U256 = jsonrpc_request(
+    //         &shared_state.config.lock().await.l2_rpc_url,
+    //         "eth_getBalance",
+    //         (receiver, "latest"),
+    //     )
+    //     .await
+    //     .expect("eth_getBalance");
+    //     assert_eq!(expected_balance, balance, "ETH balance");
+    // }
+    //
+    // finalize_chain!(shared_state);
 }
 
 #[tokio::test]

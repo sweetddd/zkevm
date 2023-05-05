@@ -7,7 +7,9 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["warn-unimplemented"] }
 hyper = { version = "0.14.16", features = ["server"] }
+hyper-tls="0.5.0"
 log = "0.4.14"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.78"
 tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
+rocksdb="0.20.1"

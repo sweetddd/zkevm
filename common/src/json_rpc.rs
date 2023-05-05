@@ -67,7 +67,8 @@ pub async fn jsonrpc_request_client<T: Serialize + Send + Sync, R: DeserializeOw
         .unwrap();
 
     log::trace!("jsonrpc_request_client: {} {}", uri, method);
-
+    let https = hyper_tls::HttpsConnector::new();
+    let client = hyper::Client::builder().build::<_, hyper::Body>(https);
     let json = tokio::time::timeout(std::time::Duration::from_millis(timeout), async {
         let err_str = &uri.to_string();
         let resp = client.request(node_req).await.expect(err_str);

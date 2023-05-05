@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::structs::*;
 use crate::utils::*;
-use ethers_core::abi::Abi;
+use ethers_core::abi::{Abi, AbiEncode, ethabi};
 use ethers_core::abi::AbiParser;
 use ethers_core::abi::RawLog;
 use ethers_core::abi::Token;
@@ -11,7 +11,7 @@ use ethers_core::types::{
     Address, Block, Bytes, Filter, Log, Transaction, TransactionRequest, TxpoolStatus,
     ValueOrArray, H256, U256, U64,
 };
-use ethers_core::utils::keccak256;
+use ethers_core::utils::{hex, keccak256};
 use ethers_core::utils::rlp;
 use ethers_signers::LocalWallet;
 use ethers_signers::Signer;
@@ -19,16 +19,27 @@ use hyper::client::HttpConnector;
 use hyper::Uri;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::cmp;
+use std::{cmp, env};
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
+use ethers_core::k256::elliptic_curve::consts::U6;
+use log::log;
 use tokio::sync::Mutex;
 use zkevm_common::json_rpc::jsonrpc_request;
 use zkevm_common::json_rpc::jsonrpc_request_client;
 use zkevm_common::prover::ProofRequestOptions;
 use zkevm_common::prover::Proofs;
+use rustc_hex::ToHex;
+use zkevm_common::db_utils::{KVStore, RocksDB};
+const KEY_COORDINATOR_L1_BLOCK_NUMBER: &str = "coordinator_l1_block_number";
+const KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER: &str = "coordinator_l2_pending_block_number";
+const KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER: &str = "coordinator_l2_commit_block_number";
+const KEY_COORDINATOR_L2_FINALIZE_BLOCK_NUMBER: &str = "coordinator_l2_finalize_block_number";
+const KEY_COORDINATOR_L1_MESSAGE_QUEUE: &str = "coordinator_l1_message_queue";
+const KEY_COORDINATOR_L1_DELIVERED_MESSAGE: &str = "coordinator_l1_delivered_messages";
 
 pub struct RoState {
     pub l2_message_deliverer_addr: Address,
@@ -124,22 +135,27 @@ pub struct SharedState {
     pub config: Arc<Mutex<Config>>,
     pub ro: Arc<RoState>,
     pub rw: Arc<Mutex<RwState>>,
+    pub db: Arc<RocksDB>,
 }
 
 impl SharedState {
-    pub async fn new(config: &Config) -> Self {
+    pub async fn new(config: &Config,db : &RocksDB) -> Self {
         Self {
             config: Arc::new(Mutex::new(config.clone())),
             ro: Arc::new(RoState::new(config).await),
             rw: Arc::new(Mutex::new(RwState::default())),
+            db : Arc::new(db.clone())
         }
     }
 
+
     /// Initiates configuration from environment variables only.
     pub async fn from_env() -> Self {
+        let db: RocksDB = KVStore::init(env::var("COORDINATOR_DB_PATH").unwrap().as_str());
+
         let config = Config::from_env();
 
-        Self::new(&config).await
+        Self::new(&config,&db).await
     }
 
     pub async fn init(&self) {
@@ -182,12 +198,28 @@ impl SharedState {
 
     pub async fn sync(&self) {
         // sync events
-        let latest_block: U64 = self
+        let scan_step = match env::var("COORDINATOR_WATCHER_SCAN_STEP") {
+            Ok(e) => {u64::from_str(e.as_str()).unwrap()},
+            Err(e) => {1500}
+        };
+        let eth_block_number :U64= self
             .request_l1("eth_blockNumber", ())
             .await
             .expect("eth_blockNumber");
+        let latest_scan_block = match self.db.find(KEY_COORDINATOR_L1_BLOCK_NUMBER) {
+                None => {
+                    if eth_block_number > U64::from(scan_step) {
+                        eth_block_number - scan_step.clone()
+                    }else {
+                        U64::zero()
+                    }
+
+                },
+                Some(e) => U64::from( u64::from_str(e.as_str()).unwrap() )
+        };
+
         let mut last_to_block: U64 = U64::zero();
-        let mut from: U64 = self.rw.lock().await.l1_last_sync_block + 1;
+        let mut from: U64 = latest_scan_block;
         // let mut from: U64 = latest_block.clone();
         let mut filter = Filter::new()
             .address(ValueOrArray::Value(self.config.lock().await.l1_bridge))
@@ -198,96 +230,118 @@ impl SharedState {
                 self.ro.message_delivered_topic,
             ]));
 
-        while from <= latest_block {
-            // TODO: increase or decrease request range depending on fetch success
-            let to = from+100u64;
-            log::trace!("fetching l1 logs from={} to={}", from, to);
-            filter = filter.from_block(from).to_block(to);
+        // while from <= latest_block {
+        //
+        // }
+        // TODO: increase or decrease request range depending on fetch success
+        let mut to = from + scan_step;
+        if eth_block_number < to {
+            to = eth_block_number;
+        }
+        if from == to {
+            self.sync_l2().await;
 
-            let logs: Vec<Log> = self
-                .request_l1("eth_getLogs", [&filter])
-                .await
-                .expect("eth_getLogs");
-            // TODO: ugly hack to fix geth inconstency issues
-            if !logs.is_empty() {
-                last_to_block = to;
-            }
+            return;
+        }
+        log::debug!("fetching l1 logs from={} to={}", from, to);
+        filter = filter.from_block(	from).to_block(to);
 
-            for log in logs {
-                let topic = log.topics[0];
+        let logs: Vec<Log> = self
+            .request_l1("eth_getLogs", [&filter])
+            .await
+            .expect("eth_getLogs");
+        // TODO: ugly hack to fix geth inconstency issues
+        if !logs.is_empty() {
+            last_to_block = to;
+        }
 
-                if topic == self.ro.block_beacon_topic {
-                    let tx_hash = log.transaction_hash.expect("log txhash");
-                    let tx: Transaction = self
-                        .request_l1("eth_getTransactionByHash", [tx_hash])
-                        .await
-                        .expect("tx");
+        for log in logs {
+            let topic = log.topics[0];
 
-                    let tx_data = tx.input.as_ref();
+            if topic == self.ro.block_beacon_topic {
+                let tx_hash = log.transaction_hash.expect("log txhash");
+                let tx: Transaction = self
+                    .request_l1("eth_getTransactionByHash", [tx_hash])
+                    .await
+                    .expect("tx");
 
-                    // TODO: handle the case if len < 68
-                    let len = U256::from(&tx_data[36..68]).as_usize();
-                    let start = 68;
-                    let end = start + len;
-                    if end > tx_data.len() {
-                        log::warn!("TODO: zeropad block data");
-                    }
-                    let rlp = rlp::Rlp::new(&tx_data[start..end]);
-                    let info = rlp.payload_info().expect("payload_info");
-                    let block_header = &rlp.as_raw()[0..info.header_len + info.value_len];
-                    let block_hash = H256::from(keccak256(block_header));
-                    log::info!("BlockSubmitted: {:?} via {:?}", block_hash, tx_hash);
+                let tx_data = tx.input.as_ref();
 
-                    let resp: Result<serde_json::Value, String> =
-                        self.request_l2("eth_getHeaderByHash", [block_hash]).await;
+                // TODO: handle the case if len < 68
+                let len = U256::from(&tx_data[36..68]).as_usize();
+                let start = 68;
+                let end = start + len;
+                if end > tx_data.len() {
+                    log::warn!("TODO: zeropad block data");
+                }
+                let rlp = rlp::Rlp::new(&tx_data[start..end]);
+                let info = rlp.payload_info().expect("payload_info");
+                let block_header = &rlp.as_raw()[0..info.header_len + info.value_len];
+                let block_hash = H256::from(keccak256(block_header));
+                log::info!("BlockSubmitted: {:?} via {:?}", block_hash, tx_hash);
 
-                    if resp.is_err() {
-                        log::error!(
+                let resp: Result<serde_json::Value, String> =
+                    self.request_l2("eth_getHeaderByHash", [block_hash]).await;
+
+                if resp.is_err() {
+                    log::error!(
                             "TODO: block not found {} {}",
                             block_hash,
                             resp.err().unwrap()
                         );
-                    }
-
-                    self.rw.lock().await.chain_state.safe_block_hash = block_hash;
-                    continue;
                 }
 
-                if topic == self.ro.block_finalized_topic {
-                    let block_hash = H256::from_slice(log.data.as_ref());
-                    log::info!(
+                self.rw.lock().await.chain_state.safe_block_hash = block_hash;
+                continue;
+            }
+
+            if topic == self.ro.block_finalized_topic {
+                let block_hash = H256::from_slice(log.data.as_ref());
+                log::info!(
                         "BlockFinalized: {:?} via {:?}",
                         block_hash,
                         log.transaction_hash
                     );
 
-                    self.rw.lock().await.chain_state.finalized_block_hash = block_hash;
-                    self.record_l2_messages(block_hash).await;
-                    continue;
-                }
-
-                if topic == self.ro.message_dispatched_topic {
-                    let beacon = self._parse_message_beacon(log);
-                    log::info!("L1:MessageDispatched:{:?}", beacon.id);
-                    log::debug!("{:?}", beacon);
-                    self.rw.lock().await.l1_message_queue.push_back(beacon);
-                    continue;
-                }
-
-                if topic == self.ro.message_delivered_topic {
-                    let id = H256::from_slice(log.data.as_ref());
-                    log::info!("L1:MessageDelivered:{:?}", id);
-                    self.rw.lock().await.l1_delivered_messages.push(id);
-                    continue;
-                }
+                self.rw.lock().await.chain_state.finalized_block_hash = block_hash;
+                self.record_l2_messages(block_hash).await;
+                continue;
             }
 
-            from = to + 100u64;
+            if topic == self.ro.message_dispatched_topic {
+                let beacon = self._parse_message_beacon(log);
+                log::info!("L1:MessageDispatched:{:?}", beacon.id);
+                log::debug!("{:?}", beacon);
+                // let mut l1_message_queue :VecDeque<MessageBeacon> = match self.db.find(KEY_COORDINATOR_L1_MESSAGE_QUEUE) {
+                //     None => {VecDeque::new()},
+                //     Some(e) => serde_json::from_str(e.as_str()).unwrap()
+                // };
+                // l1_message_queue.push_back(beacon);
+                // self.db.save_obj(KEY_COORDINATOR_L1_MESSAGE_QUEUE,l1_message_queue);
+                self.rw.lock().await.l1_message_queue.push_back(beacon);
+                continue;
+            }
+
+            if topic == self.ro.message_delivered_topic {
+                let id = H256::from_slice(log.data.as_ref());
+                log::info!("L1:MessageDelivered:{:?}", id);
+
+                // let mut l1_delivered_messages :Vec<H256> = match self.db.find(KEY_COORDINATOR_L1_DELIVERED_MESSAGE) {
+                //     None => {Vec::new()},
+                //     Some(e) => serde_json::from_str(e.as_str()).unwrap()
+                // };
+                // l1_delivered_messages.push(id);
+                // self.db.save(KEY_COORDINATOR_L1_DELIVERED_MESSAGE,l1_delivered_messages);
+                self.rw.lock().await.l1_delivered_messages.push(id);
+                continue;
+            }
         }
 
-        if last_to_block != U64::zero() {
-            self.rw.lock().await.l1_last_sync_block = last_to_block;
-        }
+
+
+        let x = to.clone().to_string();
+        self.db.save(KEY_COORDINATOR_L1_BLOCK_NUMBER,x.clone().as_str());
+        log::info!("self.db.find(KEY_COORDINATOR_L1_BLOCK_NUMBER) {:?}",self.db.find(KEY_COORDINATOR_L1_BLOCK_NUMBER));
         self.sync_l2().await;
     }
 
@@ -325,6 +379,12 @@ impl SharedState {
                     .expect("l1 block header");
                 // TODO: figure out how to get by hash - gonna be safer
                 // Or just hash it and compare against l1_block_header.hash.
+                let number = l1_block_header.number.as_u64();
+                let number_hex = format!("{number:#X}");
+                // let block_data: Bytes = self
+                //     .request_l1("debug_getRawHeader", [number_hex])
+                //     .await
+                //     .expect("block_data");
                 let block_data: Bytes = self
                     .request_l1("debug_getHeaderRlp", [l1_block_header.number.as_u64()])
                     .await
@@ -375,8 +435,9 @@ impl SharedState {
                         .bridge_abi
                         .function("importForeignBridgeState")
                         .unwrap()
-                        .encode_input(&[block_data.into_token(), account_proof.into_token()])
+                        .encode_input(&[block_data.clone().into_token(), account_proof.clone().into_token()])
                         .expect("calldata");
+                    log::info!("block_data {:?}, block_data .INTO TOKEN {:?}, account proof {:?}",hex::encode(block_data.clone()),block_data.into_token(),hex::encode(account_proof));
                     let tx = self
                         .sign_l2_given_block_tag(
                             Some(self.ro.l2_message_deliverer_addr),
@@ -448,7 +509,8 @@ impl SharedState {
                         // encode proof
                         Bytes::from(marshal_proof_single(&proof_obj.storage_proof[0].proof))
                     };
-                    let calldata = self
+                    // address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof
+                    let calldata  = self
                         .ro
                         .bridge_abi
                         .function("deliverMessageWithProof")
@@ -460,10 +522,14 @@ impl SharedState {
                             msg.fee.into_token(),
                             msg.deadline.into_token(),
                             msg.nonce.into_token(),
-                            Token::Bytes(msg.calldata),
+                            Token::Bytes(msg.clone().calldata),
                             storage_proof.into_token(),
                         ])
                         .expect("calldata");
+
+                    let calldata_bytes = Bytes::from(calldata.clone());
+
+                    log::debug!("deliverMessageWithProof call data: {}，msg {:?}", calldata_bytes,msg.clone());
 
                     // simulate against temporary block
                     let tx = self
@@ -543,15 +609,42 @@ impl SharedState {
 
     pub async fn submit_blocks(&self) {
         // block submission
-        let safe_hash = self.rw.lock().await.chain_state.safe_block_hash;
-        let head_hash = self.rw.lock().await.chain_state.head_block_hash;
-        if safe_hash != head_hash {
+        let commit_block_number = match  self.db.find(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER) {
+            None => {U64::from(0)},
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+       let commit_block =  get_blocks_number(
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            &commit_block_number
+        ).await;
+
+        let pending_block_number = match  self.db.find(KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER) {
+            None => {U64::from(0)},
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+
+        let pending_block =  get_blocks_number(
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            &pending_block_number
+        ).await;
+
+
+
+
+
+        if pending_block_number != commit_block_number {
             // find all the blocks since `safe_hash`
             let blocks = get_blocks_between(
                 &self.ro.http_client,
                 &self.config.lock().await.l2_rpc_url,
-                &safe_hash,
-                &head_hash,
+                &commit_block.hash.unwrap(),
+                &pending_block.hash.unwrap(),
             )
             .await;
             let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
@@ -576,6 +669,7 @@ impl SharedState {
                     self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
                         .await
                         .expect("receipt");
+                    self.db.save(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER,block.number.unwrap().to_string().as_str());
                 }
             }
         }
@@ -583,15 +677,41 @@ impl SharedState {
 
     pub async fn finalize_blocks(&self) -> Result<(), String> {
         // block finalization
-        let safe_hash = self.rw.lock().await.chain_state.safe_block_hash;
-        let final_hash = self.rw.lock().await.chain_state.finalized_block_hash;
-        log::info!("safe hash {:} final_hash {:?}",safe_hash.clone(),final_hash.clone());
-        if final_hash != safe_hash {
+
+
+        let commit_block_number = match  self.db.find(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER) {
+            None => {U64::from(0)},
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+        let commit_block =  get_blocks_number(
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            &commit_block_number
+        ).await;
+
+        let finalize_block_number = match  self.db.find(KEY_COORDINATOR_L2_FINALIZE_BLOCK_NUMBER) {
+            None => {U64::from(0)},
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+
+        let finalize_block =  get_blocks_number(
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            &finalize_block_number
+        ).await;
+
+        log::info!("commit_block_number hash {:} finalize_block_number {:?}",commit_block_number.clone(),finalize_block_number.clone());
+
+        if finalize_block_number != commit_block_number {
             let blocks = get_blocks_between(
                 &self.ro.http_client,
                 &self.config.lock().await.l2_rpc_url,
-                &final_hash,
-                &safe_hash,
+                &finalize_block.hash.unwrap(),
+                &commit_block.hash.unwrap(),
             )
             .await;
 
@@ -671,6 +791,8 @@ impl SharedState {
                 self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
                     .await
                     .expect("receipt");
+                self.db.save(KEY_COORDINATOR_L2_FINALIZE_BLOCK_NUMBER,block.number.unwrap().to_string().as_str());
+
             }
         }
 
@@ -757,8 +879,9 @@ impl SharedState {
             .sign_transaction(&tx)
             .await
             .map_err(|e| e.to_string())?;
-
-        Ok(tx.rlp_signed(&sig))
+        let x = tx.rlp_signed(&sig);
+        log::info!("sign_l2_given_block_tag tx {:?},hash {:?} ",tx.clone(),x.clone());
+        Ok(x)
     }
 
     pub async fn request_l1<T: Serialize + Send + Sync, R: DeserializeOwned>(
@@ -868,8 +991,15 @@ impl SharedState {
             .request_l2("eth_blockNumber", ())
             .await
             .expect("eth_blockNumber");
+        let pending_block_number = match  self.db.find(KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER) {
+            None => {U64::zero()},
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+
         let mut last_to_block: U64 = U64::zero();
-        let mut from: U64 = self.rw.lock().await.l2_last_sync_block + 1;
+        let mut from: U64 = pending_block_number;
         let mut filter = Filter::new()
             .address(ValueOrArray::Value(self.ro.l2_message_deliverer_addr))
             .topic0(ValueOrArray::Value(self.ro.message_delivered_topic));
@@ -903,7 +1033,9 @@ impl SharedState {
             rw.l2_last_sync_block = last_to_block;
             rw.l2_delivered_messages.extend_from_slice(&executed_msgs);
         }
+        self.db.save(KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER,latest_block.to_string().as_str());
     }
+
 
     /// keeps track of L2 > L1 message events
     async fn record_l2_messages(&self, block_hash: H256) {
@@ -1058,9 +1190,13 @@ impl SharedState {
         // TODO: this is really ugly. consider finding a alternative
         let evt = self.ro.bridge_abi.event("MessageDispatched").unwrap();
         let evt = evt
-            .parse_log(RawLog::from((log.topics, log.data.to_vec())))
+            .parse_log(RawLog::from((log.clone().topics, log.clone().data.to_vec())))
             .unwrap();
 
+        log::debug!("log {:?},evt {:?}",log.clone(),evt.clone());
+
+        //   event MessageDispatched
+        // (address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data);
         let id: H256 = keccak256(log.data).into();
         let from = evt.params[0].value.to_owned().into_address().unwrap();
         let to = evt.params[1].value.to_owned().into_address().unwrap();

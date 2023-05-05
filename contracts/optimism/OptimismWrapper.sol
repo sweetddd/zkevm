@@ -11,7 +11,7 @@ abstract contract OptimismWrapper is ICrossDomainMessenger, ZkEvmUtils {
 
   address xDomainMsgSender;
 
-  function xDomainMessageSender () external view returns (address) {
+  function xDomainMessageSender () external view override  returns (address) {
     require(
       xDomainMsgSender != DEFAULT_XDOMAIN_SENDER,
       'xDomainMessageSender is not set'

@@ -13,7 +13,7 @@ pub struct ForkchoiceStateV1 {
     pub finalized_block_hash: H256,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug,serde::Serialize, serde::Deserialize)]
 pub struct MessageBeacon {
     pub id: H256,
     pub from: Address,
