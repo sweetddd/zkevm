@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: $APP_NAME-sandbox
+  namespace: chain-sandbox
+spec:
+  ports:
+  - name: ws
+    port: 8547
+    targetPort: 8547
+    protocol: TCP
+  selector:
+    app: $APP_NAME-sandbox
+  sessionAffinity: None
+#  type: NodePort
+  type: ClusterIP

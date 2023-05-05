@@ -1,0 +1,58 @@
+pipeline {
+ agent {
+    node {
+      label 'rust'
+    }
+  }
+
+//     parameters {
+//         string(name:'TAG_NAME',defaultValue: '',description:'')
+//     }
+
+    environment {
+        REGISTRY = 'registry.cn-beijing.aliyuncs.com/pox'
+        APP_NAME = 'zkevm-coordinator'
+    }
+
+  stages {
+       stage('check out from git') {
+               steps {
+                 checkout([$class: 'GitSCM',
+                 branches: [[name: 'master']],
+                 extensions: [[$class: 'SubmoduleOption',
+                 disableSubmodules: false,
+                 parentCredentials: true,
+                 recursiveSubmodules: true,
+                 reference: '', trackingSubmodules: true]],
+                 userRemoteConfigs: [[credentialsId: 'gitaccount', url: 'http://git.everylink.ai/crosschain/zkevm-chain.git']]])
+               }
+       }
+    stage('build & push') {
+      steps {
+        container('rust') {
+          withCredentials([usernamePassword(passwordVariable : 'DOCKER_PASSWORD' ,credentialsId : 'dockerhub' ,usernameVariable : 'DOCKER_USERNAME' ,)]) {
+            sh 'echo "$DOCKER_PASSWORD" | docker login $REGISTRY -u "$DOCKER_USERNAME" --password-stdin'
+            sh 'docker build -f docker/coordinator/Dockerfile -t $REGISTRY/$APP_NAME:SNAPSHOT-$BUILD_NUMBER .'
+            sh 'docker push $REGISTRY/$APP_NAME:SNAPSHOT-$BUILD_NUMBER'
+           }
+         }
+      }
+    }
+    stage('deploy to sandbox') {
+      steps {
+         container ('rust') {
+                          withCredentials([
+                              kubeconfigFile(
+                              credentialsId: 'kubeconfig',
+                              variable: 'KUBECONFIG')
+                              ]) {
+                              sh 'envsubst < deploy/coordinator/sandbox/deployment.yaml | kubectl apply -f -'
+                              sh 'envsubst < deploy/coordinator/sandbox/service.yaml | kubectl apply -f -'
+                          }
+                     }
+      }
+    }
+
+  }
+}
+

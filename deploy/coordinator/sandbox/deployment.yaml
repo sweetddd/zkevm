@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: $APP_NAME-sandbox
+  namespace: chain-sandbox
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: $APP_NAME-sandbox
+  template:
+    metadata:
+      labels:
+        app: $APP_NAME-sandbox
+    spec:
+      containers:
+      - name: $APP_NAME-sandbox
+        command: [ "/bin/bash" ]
+        args: [ "-c","./target/release/coordinator" ]
+        image:  $REGISTRY/$APP_NAME:SNAPSHOT-$BUILD_NUMBER
+        resources:
+          requests:
+            cpu: '2'
+            memory: 4Gi
+          limits:
+            cpu: '1'
+            memory: 2Gi
+        volumeMounts:
+        - name: host-time
+          mountPath: /etc/localtime
+        - name: data
+          mountPath: /data/blocks
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 8547
+        env:
+          - name: TZ
+            value: GMT
+          - name: RUST_LOG
+            value: pallet_evm=debug,pallet_ethereum=debug
+          - name: COORDINATOR_AGGREGATE_PROOF
+            value: false
+          - name: COORDINATOR_CIRCUIT_NAME
+            value: 'pi'
+          - name: COORDINATOR_DB_PATH
+            value: '/data/blocks/zkevm/coordinator/node0'
+          - name: COORDINATOR_DUMMY_PROVER
+            value: 'false'
+          - name: COORDINATOR_ENABLE_FAUCET
+            value: 'true'
+          - name: COORDINATOR_L1_BRIDGE
+            value: '0x67F5365fF5b2B1EeE159dF7A35E0f5F66858b034'
+          - name: COORDINATOR_L1_PRIV
+            value: '9fd4abb4a4e78804ae4b40fbab6d53355fffc701da2dbd9be567ce52bca22fca'
+          - name: COORDINATOR_L1_RPC_URL
+            value: 'http://10.233.47.97:8545'
+          - name: COORDINATOR_L2_RPC_URL
+            value: 'http://10.233.41.253:8545/'
+          - name: COORDINATOR_LISTEN
+            value: '0.0.0.0:8547'
+          - name: COORDINATOR_MOCK_PROVER
+            value: 'false'
+          - name: COORDINATOR_PROVER_RPCD_URL
+            value: 'http://10.233.3.96:8546'
+          - name: COORDINATOR_RPC_SERVER_NODES
+            value: '10.233.41.253:8545'
+          - name: COORDINATOR_UNSAFE_RPC
+            value: 'false'
+          - name: COORDINATOR_WATCHER_SCAN_STEP
+            value: '1000'
+          - name: RUST_LOG
+            value: 'debug'
+      volumes:
+      - name: host-time
+        hostPath:
+          path: /etc/localtime
+      - name: data
+        persistentVolumeClaim:
+          claimName: vmchain-ssd-pvc
+      imagePullSecrets:
+      - name: regcred
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - node47
+  strategy:
+    type: Recreate
