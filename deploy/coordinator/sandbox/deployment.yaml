@@ -19,10 +19,10 @@ spec:
         args: [ "-c","./target/release/coordinator" ]
         image:  $REGISTRY/$APP_NAME:SNAPSHOT-$BUILD_NUMBER
         resources:
-          requests:
+          limits:
             cpu: '2'
             memory: 4Gi
-          limits:
+          requests:
             cpu: '1'
             memory: 2Gi
         volumeMounts:
