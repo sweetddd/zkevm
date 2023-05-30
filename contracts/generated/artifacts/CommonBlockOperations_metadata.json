@@ -1,0 +1,45 @@
+{
+	"compiler": {
+		"version": "0.8.18+commit.87f61d96"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"contracts/generated/CommonBlockOperations.sol": "CommonBlockOperations"
+		},
+		"evmVersion": "paris",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": true,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"contracts/generated/CommonBlockOperations.sol": {
+			"keccak256": "0xb57647dac163bae45fc6ab8209be77e75a4027275dbe6683ff1c0482b69215f1",
+			"license": "MIT",
+			"urls": [
+				"bzz-raw://315a735bfeced90e2e1a3bb6109550c47d0172230421159d4a1e8ab48d90d7db",
+				"dweb:/ipfs/QmWv7FLRcGXq4ouMMzgE34jPetMXCxsii2SEXxYi3qMWwr"
+			]
+		}
+	},
+	"version": 1
+}
