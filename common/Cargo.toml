@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-eth-types = { git = "https://github.com/privacy-scaling-explorations/zkevm-circuits.git", branch = "main", features = ["warn-unimplemented"] }
+eth-types = {git = "http://git.everylink.ai/public/pse-zkevm-circuits.git", branch = "d4b4b81c8b", features = ["warn-unimplemented"] }
 hyper = { version = "0.14.16", features = ["server"] }
 hyper-tls="0.5.0"
 log = "0.4.14"
