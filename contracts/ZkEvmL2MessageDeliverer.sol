@@ -18,7 +18,7 @@ contract ZkEvmL2MessageDeliverer is
 {
   // TODO: decide on public getters once L1/L2 Inbox is DRY
   // Latest known L1 block hash
-  bytes32 lastKnownL1BlockHash;
+   bytes32 public lastKnownL1BlockHash;
   // Mapping from <storage root of L1 bridge> to L1 block timestamp
   mapping (bytes32 => uint256) storageRootToTimestamp;
 

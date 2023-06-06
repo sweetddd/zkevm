@@ -1,6 +1,6 @@
 {
 	"compiler": {
-		"version": "0.8.16+commit.07a7930e"
+		"version": "0.8.19+commit.7dd6d404"
 	},
 	"language": "Solidity",
 	"output": {
@@ -229,6 +229,19 @@
 			},
 			{
 				"inputs": [],
+				"name": "lastKnownL1BlockHash",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "messageOrigin",
 				"outputs": [
 					{
@@ -284,13 +297,13 @@
 		"compilationTarget": {
 			"contracts/ZkEvmL2MessageDeliverer.sol": "ZkEvmL2MessageDeliverer"
 		},
-		"evmVersion": "london",
+		"evmVersion": "paris",
 		"libraries": {},
 		"metadata": {
 			"bytecodeHash": "ipfs"
 		},
 		"optimizer": {
-			"enabled": false,
+			"enabled": true,
 			"runs": 200
 		},
 		"remappings": []
@@ -305,19 +318,19 @@
 			]
 		},
 		"contracts/ZkEvmL2MessageDeliverer.sol": {
-			"keccak256": "0x99ab94d641df8d19755adf683a254ab2c3f54e42416c730a9f69330bc54768ae",
+			"keccak256": "0x1c0fa3f35d021550b3353266ade276fb8a1d23180dcd975f471b68e03e4a0f77",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://78171d782a56f51ecb0c9219bdef1a9617ce70e1a9d980ef09af1c482d1a252a",
-				"dweb:/ipfs/QmaWAyK7MMC9h64HDSAqEGEcCNvWVKdCpyUCcMtbD7YQpr"
+				"bzz-raw://897249a3e4797b15fff2cd76228a84bc59bc77954902d562d632754bc3a22c80",
+				"dweb:/ipfs/QmQMNR4T9F3su27QxtDLdC2vhoYzbNZkyVdggBxJy5TNgM"
 			]
 		},
 		"contracts/ZkEvmMagicNumbers.sol": {
-			"keccak256": "0x27d4a77d3c61a12dfaf9bcdc31657aac01531ad802c386b485d8b8965216cd2e",
+			"keccak256": "0xabda60e854ce1e1999f7c05b0025c0c7609a75fc0228e41911ca8b7247932992",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://b5f3a3b22974f420cf46dd4cf7f9565bc27437f11fbd3e296c5517416c17a4df",
-				"dweb:/ipfs/QmV3KTMivzk8QpSQw23b9NYg2qtjqC81HKNVDizsmT6FBy"
+				"bzz-raw://871489e1226e574f8e7c451d949a3e62a124ac4989b4dc853ad5b87d323756ad",
+				"dweb:/ipfs/Qmba1JXWXKA9nnbQ6NfDBDxv8f2tPkgXa2adC8yb4oJBbd"
 			]
 		},
 		"contracts/ZkEvmMessageDelivererBase.sol": {
@@ -345,11 +358,11 @@
 			]
 		},
 		"contracts/generated/CommonBlockOperations.sol": {
-			"keccak256": "0x913003b7439505a8245059f6c7d4674239af9bd15902981a3b7e8af0c50ff3a3",
+			"keccak256": "0xb57647dac163bae45fc6ab8209be77e75a4027275dbe6683ff1c0482b69215f1",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://f670b62c7878667ad9e050c1fb349037c3b8cfcaf3c33afcda902fec8ebdaecb",
-				"dweb:/ipfs/QmdfAb2Vfw8CUYPfwTaC4Yv4p71hk1U35quBJbdfmyvtzK"
+				"bzz-raw://315a735bfeced90e2e1a3bb6109550c47d0172230421159d4a1e8ab48d90d7db",
+				"dweb:/ipfs/QmWv7FLRcGXq4ouMMzgE34jPetMXCxsii2SEXxYi3qMWwr"
 			]
 		},
 		"contracts/generated/PatriciaAccountValidator.sol": {

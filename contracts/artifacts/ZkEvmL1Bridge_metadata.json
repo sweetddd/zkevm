@@ -1,6 +1,6 @@
 {
 	"compiler": {
-		"version": "0.8.18+commit.87f61d96"
+		"version": "0.8.19+commit.7dd6d404"
 	},
 	"language": "Solidity",
 	"output": {
@@ -125,6 +125,25 @@
 				"type": "event"
 			},
 			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": false,
+						"internalType": "bytes32",
+						"name": "blockHash",
+						"type": "bytes32"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "a",
+						"type": "uint256"
+					}
+				],
+				"name": "Test1",
+				"type": "event"
+			},
+			{
 				"inputs": [
 					{
 						"internalType": "bytes",
@@ -138,6 +157,25 @@
 						"internalType": "uint256[]",
 						"name": "result",
 						"type": "uint256[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
+				"name": "commitments",
+				"outputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
 					}
 				],
 				"stateMutability": "view",
@@ -374,6 +412,25 @@
 						"type": "bytes32"
 					}
 				],
+				"name": "originTimestamps",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					}
+				],
 				"name": "stateRoots",
 				"outputs": [
 					{
@@ -478,19 +535,19 @@
 			]
 		},
 		"contracts/ZkEvmL1Bridge.sol": {
-			"keccak256": "0xf70aa9e921b7a8efc2114f470fddc89864d4883dc30c9bb1907416c7a11689d3",
+			"keccak256": "0x63cb8c3d8260c1908af3732170301d8f2c2d960425640ce1fbdb7eac021e7daa",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://f8fcf47bb658da17fb247ec013a4e2e1986256c299b472979fdf1b071447868f",
-				"dweb:/ipfs/QmUXDcUfL3FafTGVFD5VeSrFeDp6p3agmJpT5DgokHtDdf"
+				"bzz-raw://3de89c343519637fef8badf4c70a35d26d62cb8aa890c173c599ad99d0ed05f7",
+				"dweb:/ipfs/Qmf3zw6ZMQ7o4SySYM3EMTukZ9A9UU8gV7wUhvMr5kDNsE"
 			]
 		},
 		"contracts/ZkEvmMagicNumbers.sol": {
-			"keccak256": "0x27d4a77d3c61a12dfaf9bcdc31657aac01531ad802c386b485d8b8965216cd2e",
+			"keccak256": "0xe0b25fb9eed7f2a172ac7b100ad5ee03bd3966c8194c0c4a09b770390a245e98",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://b5f3a3b22974f420cf46dd4cf7f9565bc27437f11fbd3e296c5517416c17a4df",
-				"dweb:/ipfs/QmV3KTMivzk8QpSQw23b9NYg2qtjqC81HKNVDizsmT6FBy"
+				"bzz-raw://f820921f61dd69d4ff66df6dff0cc2ca3d3aadf7c183f6c1a2fa648daf49756e",
+				"dweb:/ipfs/QmeqmTN5vF6RaWqg42mj1qUDqhYeQDasKJikQ5JHh3cANw"
 			]
 		},
 		"contracts/ZkEvmMessageDelivererBase.sol": {
@@ -502,11 +559,11 @@
 			]
 		},
 		"contracts/ZkEvmMessageDispatcherBase.sol": {
-			"keccak256": "0x2c7626585f17adf15b25625b147750cdac343384fdc0b12ebcd844a9f461dfce",
+			"keccak256": "0x8ded69a9d847c4839d487898e0393d4fc3ce7b41a71a6d8acb8a877b2c170526",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://d0aa6be073c2401730cbcd819179b8224bb1519ea27084b5bf4c0b7753b15397",
-				"dweb:/ipfs/QmdYS3Fv9EkHgYPMLTLFdxZ4S2UhzwBHYbF16Tu4ayEx6v"
+				"bzz-raw://ff05b73fc1b942c9cc54f66154f139736f5fb62d138c38255799fa4b76b83ae4",
+				"dweb:/ipfs/QmXLbyfaLzooKSbxqzyNRfg8kN2kxNrcBRzXRSRm1AHJNU"
 			]
 		},
 		"contracts/ZkEvmStorage.sol": {

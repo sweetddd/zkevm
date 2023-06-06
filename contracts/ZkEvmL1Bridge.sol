@@ -45,7 +45,7 @@ contract ZkEvmL1Bridge is
       uint256 blockGas,
     ) = _readHeaderParts(witness);
     uint256 parentStateRoot = uint256(stateRoots[parentBlockHash]);
-    uint256 chainId = 53077;
+    uint256 chainId = 9000;
     (uint256 MAX_TXS, uint256 MAX_CALLDATA) = _getCircuitConfig(blockGas);
 
     result = _buildCommitment(MAX_TXS, MAX_CALLDATA, chainId, parentStateRoot, witness, true);
@@ -63,7 +63,7 @@ contract ZkEvmL1Bridge is
       uint256 blockGas,
     ) = _readHeaderParts(witness);
     uint256 parentStateRoot = uint256(stateRoots[parentBlockHash]);
-    uint256 chainId = 53077;
+    uint256 chainId = 9000;
     (uint256 MAX_TXS, uint256 MAX_CALLDATA) = _getCircuitConfig(blockGas);
 
     uint256[] memory publicInput =

@@ -172,6 +172,79 @@ pub async fn send_transaction_to_l2(
         [raw_tx],
     )
     .await
+
+
+}
+
+pub async fn send_transaction_to_l2_wait(
+    client: &hyper::Client<HttpConnector>,
+    node_uri: &Uri,
+    wallet: &LocalWallet,
+    to: Option<Address>,
+    value: U256,
+    nonce: U256,
+    calldata: Vec<u8>,
+    gas_limit: Option<U256>,
+)  ->  Result<TransactionReceipt, String>  {
+    let wallet_addr: Address = wallet.address();
+
+    // let nonce: U256 = jsonrpc_request_client(
+    //     RPC_REQUEST_TIMEOUT,
+    //     client,
+    //     node_uri,
+    //     "eth_getTransactionCount",
+    //     (wallet_addr, "latest"),
+    // )
+    // .await
+    // .expect("nonce");
+
+    let gas_price: U256 =
+        jsonrpc_request_client(RPC_REQUEST_TIMEOUT, client, node_uri, "eth_gasPrice", ())
+            .await
+            .expect("gasPrice");
+
+    let mut tx = TransactionRequest::new()
+        .chain_id(wallet.chain_id())
+        .from(wallet_addr)
+        .nonce(nonce)
+        .value(value)
+        .gas_price(gas_price * 2u64)
+        .data(calldata);
+
+    if to.is_some() {
+        tx = tx.to(to.unwrap())
+    }
+
+    let estimate: U256 = match gas_limit {
+        Some(limit) => limit,
+        None => {
+            jsonrpc_request_client(
+                RPC_REQUEST_TIMEOUT,
+                client,
+                node_uri,
+                "eth_estimateGas",
+                [&tx],
+            )
+                .await?
+        }
+    };
+    let tx = tx.gas(estimate).into();
+
+    let sig = wallet.sign_transaction(&tx).await.unwrap();
+    let raw_tx = tx.rlp_signed(&sig);
+
+    // TODO: will be obsolete once execution api is used
+    // jsonrpc_request_client(
+    //     RPC_REQUEST_TIMEOUT,
+    //     client,
+    //     node_uri,
+    //     "eth_sendRawTransaction",
+    //     [raw_tx],
+    // )
+    //     .await
+    timeout!(120_000, wait_for_tx(client, node_uri, &raw_tx).await)
+
+
 }
 
 /// Can loop forever, thus should be wrapped inside timeout handler

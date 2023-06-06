@@ -175,12 +175,18 @@ impl SharedState {
         chain_state.safe_block_hash = h;
         chain_state.finalized_block_hash = h;
 
-        // initialize l1 bridge if necessary
-        let bridge_state_root = self
-            .call_fn_l1("stateRoots", &[genesis.hash.unwrap().into_token()])
-            .await
-            .expect("l1.stateRoots");
-        if bridge_state_root == H256::zero() {
+        let mut commit_block_number = match  self.db.find(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER) {
+            None => {U64::from(0)},
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+        // // initialize l1 bridge if necessary
+        // let bridge_state_root = self
+        //     .call_fn_l1("stateRoots", &[genesis.hash.unwrap().into_token()])
+        //     .await
+        //     .map_err(|e| println!("error ")).unwrap();
+        if commit_block_number.as_u64() == 0 {
             log::info!("init l1 bridge");
             let block_hash = genesis.hash.unwrap();
             let state_root = genesis.state_root;
@@ -424,9 +430,9 @@ impl SharedState {
 
 
                     let tx1_hash = self
-                        .transaction_to_l2(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce,  calldata, None)
+                        .transaction_to_l2_wait(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce,  calldata, None)
                         .await
-                        .expect("tx_hash");
+                        .expect("tx_hash").transaction_hash;
                     log::info!("tx1_hash {:?}",tx1_hash);
                     nonce = nonce + 1;
 
@@ -465,9 +471,9 @@ impl SharedState {
 
 
                     let tx2_hash = self
-                        .transaction_to_l2(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce, calldata, None)
+                        .transaction_to_l2_wait(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce, calldata, None)
                         .await
-                        .expect("tx2_hash");
+                        .expect("tx2_hash").transaction_hash;
                     log::info!("tx2_hash {:?}",tx2_hash);
                     nonce = nonce + 1;
                 }
@@ -544,13 +550,13 @@ impl SharedState {
                             msg.deadline.into_token(),
                             msg.nonce.into_token(),
                             Token::Bytes(msg.clone().calldata),
-                            storage_proof.into_token(),
+                            storage_proof.clone().into_token(),
                         ])
                         .expect("calldata");
 
                     let calldata_bytes = Bytes::from(calldata.clone());
 
-                    log::debug!("deliverMessageWithProof call data: {}，msg {:?}", calldata_bytes,msg.clone());
+                    log::debug!("deliverMessageWithProof call data: {}，msg {:?},storage_proof {}", calldata_bytes,msg.clone(),storage_proof.clone());
 
                     // simulate against temporary block
                     // let tx = self
@@ -564,49 +570,13 @@ impl SharedState {
                     //     .await;
 
                     let tx3_hash = self
-                        .transaction_to_l2(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce, calldata, None)
+                        .transaction_to_l2_wait(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce, calldata, None)
                         .await
-                        .expect("tx3_hash");
+                        .expect("tx3_hash").transaction_hash;
                     log::info!("tx3_hash {:?}",tx3_hash);
 
 
-                    // if let Err(err) = tx {
-                    //     log::debug!("{} simulate tx {}", LOG_TAG, err);
-                    //     drop_idxs.push(i);
-                    //     i += 1;
-                    //     continue;
-                    // }
 
-                    // try to build that block
-                    // messages.push(tx.unwrap());
-                    // let tmp = self.prepare_block(block_timestamp, Some(&messages)).await;
-                    // if let Err(err) = tmp {
-                    //     log::debug!("{} {}", LOG_TAG, err);
-                    //     // bad tx
-                    //     messages.pop();
-                    //
-                    //     match err.as_str() {
-                    //         "gas limit reached" => {
-                    //             // block is full
-                    //             break;
-                    //         }
-                    //         _ => {
-                    //             // another error, probably a revert
-                    //             drop_idxs.push(i);
-                    //             i += 1;
-                    //             continue;
-                    //         }
-                    //     }
-                    // }
-
-                    // block looks good
-                    // temporary_block = tmp.unwrap();
-                    // log::debug!(
-                    //     "{} used={} limit={}",
-                    //     LOG_TAG,
-                    //     temporary_block.gas_used,
-                    //     temporary_block.gas_limit
-                    // );
                     nonce = nonce + 1;
 
                     drop_idxs.push(i);
@@ -662,8 +632,12 @@ impl SharedState {
             }
         };
 
-        if true{
-            commit_block_number=pending_block_number-10u64;
+        let env_commit = env::var("COMMIT_BLOCK_NUMBER");
+        if env_commit.is_ok() {
+            let env_number =  U64::from(u64::from_str(env_commit.unwrap().as_str()).unwrap());
+            if env_number.gt(&commit_block_number) {
+                commit_block_number = env_number;
+            }
         }
 
         let commit_block =  get_blocks_number(
@@ -739,10 +713,10 @@ impl SharedState {
                 U64::from(u64::from_str(value.as_str()).unwrap())
             }
         };
-
-        if true{
-            finalize_block_number=commit_block_number-10u64;
-        }
+        //
+        // if true{
+        //     finalize_block_number=commit_block_number-10u64;
+        // }
 
         let finalize_block =  get_blocks_number(
             &self.ro.http_client,
@@ -885,6 +859,28 @@ impl SharedState {
             gas_limit,
         )
         .await
+    }
+
+
+    pub async fn transaction_to_l2_wait(
+        &self,
+        to: Option<Address>,
+        value: U256,
+        nonce: U256,
+        calldata: Vec<u8>,
+        gas_limit: Option<U256>,
+    )->  Result<TransactionReceipt, String> {
+        send_transaction_to_l2_wait(
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            &self.ro.l2_wallet,
+            to,
+            value,
+            nonce,
+            calldata,
+            gas_limit,
+        )
+            .await
     }
 
     /// Estimates gas against "latest" block and returns a raw signed transaction.
