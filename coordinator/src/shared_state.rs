@@ -397,7 +397,9 @@ impl SharedState {
                         .expect("eth_getProof");
                     Bytes::from(marshal_proof_single(&proof_obj.account_proof))
                 };
-                let mut messages = Vec::new();
+
+                // let mut messages = Vec::new();
+
                 // authorize l1 block
                 {
                     let calldata = self
@@ -410,25 +412,36 @@ impl SharedState {
                             l1_block_header.hash.into_token(),
                         ])
                         .expect("calldata");
-                    let tx = self
-                        .sign_l2(
-                            Some(self.ro.l2_message_deliverer_addr),
-                            U256::zero(),
-                            nonce,
-                            calldata,
-                        )
-                        .await;
-                    messages.push(tx);
+                    // let tx = self
+                    //     .sign_l2(
+                    //         Some(self.ro.l2_message_deliverer_addr),
+                    //         U256::zero(),
+                    //         nonce,
+                    //         calldata,
+                    //     )
+                    //     .await;
+                    // messages.push(tx);
+
+
+                    let tx1_hash = self
+                        .transaction_to_l2(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce,  calldata, None)
+                        .await
+                        .expect("tx_hash");
+                    log::info!("tx1_hash {:?}",tx1_hash);
                     nonce = nonce + 1;
+
+
                 }
                 // Use this block to run the messages against.
                 // This is required for proper gas calculation.
                 let block_timestamp = self.next_timestamp().await;
-                let temporary_block = self
-                    .prepare_block(block_timestamp, Some(&messages))
-                    .await
-                    .expect("prepare block with import tx");
-                // import block header
+
+
+                // let temporary_block = self
+                //     .prepare_block(block_timestamp, Some(&messages))
+                //     .await
+                //     .expect("prepare block with import tx");
+                // import block headerx
                 {
                     let calldata = self
                         .ro
@@ -438,23 +451,31 @@ impl SharedState {
                         .encode_input(&[block_data.clone().into_token(), account_proof.clone().into_token()])
                         .expect("calldata");
                     log::info!("block_data {:?}, block_data .INTO TOKEN {:?}, account proof {:?}",hex::encode(block_data.clone()),block_data.into_token(),hex::encode(account_proof));
-                    let tx = self
-                        .sign_l2_given_block_tag(
-                            Some(self.ro.l2_message_deliverer_addr),
-                            U256::zero(),
-                            nonce,
-                            calldata,
-                            Some(format!("{:#066x}", temporary_block.hash.unwrap())),
-                        )
+                    // let tx = self
+                    //     .sign_l2_given_block_tag(
+                    //         Some(self.ro.l2_message_deliverer_addr),
+                    //         U256::zero(),
+                    //         nonce,
+                    //         calldata,
+                    //         Some(format!("{:#066x}", temporary_block.hash.unwrap())),
+                    //     )
+                    //     .await
+                    //     .expect("importForeignBridgeState on temporary_block");
+                    // messages.push(tx);
+
+
+                    let tx2_hash = self
+                        .transaction_to_l2(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce, calldata, None)
                         .await
-                        .expect("importForeignBridgeState on temporary_block");
-                    messages.push(tx);
+                        .expect("tx2_hash");
+                    log::info!("tx2_hash {:?}",tx2_hash);
                     nonce = nonce + 1;
                 }
-                let mut temporary_block = self
-                    .prepare_block(block_timestamp, Some(&messages))
-                    .await
-                    .expect("prepare block with import tx");
+
+                // let mut temporary_block = self
+                //     .prepare_block(block_timestamp, Some(&messages))
+                //     .await
+                //     .expect("prepare block with import tx");
                 let ts = U256::from(block_timestamp);
                 let mut drop_idxs = Vec::new();
                 let mut i = 0;
@@ -532,63 +553,72 @@ impl SharedState {
                     log::debug!("deliverMessageWithProof call data: {}，msg {:?}", calldata_bytes,msg.clone());
 
                     // simulate against temporary block
-                    let tx = self
-                        .sign_l2_given_block_tag(
-                            Some(self.ro.l2_message_deliverer_addr),
-                            U256::zero(),
-                            nonce,
-                            calldata,
-                            Some(format!("{:#066x}", temporary_block.hash.unwrap())),
-                        )
-                        .await;
-                    if let Err(err) = tx {
-                        log::debug!("{} simulate tx {}", LOG_TAG, err);
-                        drop_idxs.push(i);
-                        i += 1;
-                        continue;
-                    }
+                    // let tx = self
+                    //     .sign_l2_given_block_tag(
+                    //         Some(self.ro.l2_message_deliverer_addr),
+                    //         U256::zero(),
+                    //         nonce,
+                    //         calldata,
+                    //         Some(format!("{:#066x}", temporary_block.hash.unwrap())),
+                    //     )
+                    //     .await;
+
+                    let tx3_hash = self
+                        .transaction_to_l2(Some(self.ro.l2_message_deliverer_addr), U256::zero(), nonce, calldata, None)
+                        .await
+                        .expect("tx3_hash");
+                    log::info!("tx3_hash {:?}",tx3_hash);
+
+
+                    // if let Err(err) = tx {
+                    //     log::debug!("{} simulate tx {}", LOG_TAG, err);
+                    //     drop_idxs.push(i);
+                    //     i += 1;
+                    //     continue;
+                    // }
 
                     // try to build that block
-                    messages.push(tx.unwrap());
-                    let tmp = self.prepare_block(block_timestamp, Some(&messages)).await;
-                    if let Err(err) = tmp {
-                        log::debug!("{} {}", LOG_TAG, err);
-                        // bad tx
-                        messages.pop();
-
-                        match err.as_str() {
-                            "gas limit reached" => {
-                                // block is full
-                                break;
-                            }
-                            _ => {
-                                // another error, probably a revert
-                                drop_idxs.push(i);
-                                i += 1;
-                                continue;
-                            }
-                        }
-                    }
+                    // messages.push(tx.unwrap());
+                    // let tmp = self.prepare_block(block_timestamp, Some(&messages)).await;
+                    // if let Err(err) = tmp {
+                    //     log::debug!("{} {}", LOG_TAG, err);
+                    //     // bad tx
+                    //     messages.pop();
+                    //
+                    //     match err.as_str() {
+                    //         "gas limit reached" => {
+                    //             // block is full
+                    //             break;
+                    //         }
+                    //         _ => {
+                    //             // another error, probably a revert
+                    //             drop_idxs.push(i);
+                    //             i += 1;
+                    //             continue;
+                    //         }
+                    //     }
+                    // }
 
                     // block looks good
-                    temporary_block = tmp.unwrap();
-                    log::debug!(
-                        "{} used={} limit={}",
-                        LOG_TAG,
-                        temporary_block.gas_used,
-                        temporary_block.gas_limit
-                    );
+                    // temporary_block = tmp.unwrap();
+                    // log::debug!(
+                    //     "{} used={} limit={}",
+                    //     LOG_TAG,
+                    //     temporary_block.gas_used,
+                    //     temporary_block.gas_limit
+                    // );
                     nonce = nonce + 1;
+
                     drop_idxs.push(i);
                     i += 1;
                 }
 
                 // final step
-                if temporary_block.transactions.len() > 1 {
-                    self.set_chain_head(temporary_block.hash.unwrap())
-                        .await
-                        .expect("set_chain_head relay");
-                }
+                // if temporary_block.transactions.len() > 1 {
+                //     self.set_chain_head(temporary_block.hash.unwrap())
+                //         .await
+                //         .expect("set_chain_head relay");
+                // }
 
                 // everything went well
                 let mut rw = self.rw.lock().await;
@@ -599,27 +629,16 @@ impl SharedState {
         }
 
         // check if we can mine a block
-        let resp: TxpoolStatus = self.request_l2("txpool_status", ()).await.unwrap();
-        let pending_txs = resp.pending.as_u64();
+        // let resp: TxpoolStatus = self.request_l2("txpool_status", ()).await.unwrap();
+        // let pending_txs = resp.pending.as_u64();
 
-        if pending_txs != 0 {
-            self.mine_block(None).await.expect("mine_block regular");
-        }
+        // if pending_txs != 0 {
+            // self.mine_block(None).await.expect("mine_block regular");
+        // }
     }
 
     pub async fn submit_blocks(&self) {
-        // block submission
-        let commit_block_number = match  self.db.find(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER) {
-            None => {U64::from(0)},
-            Some(value) => {
-                U64::from(u64::from_str(value.as_str()).unwrap())
-            }
-        };
-       let commit_block =  get_blocks_number(
-            &self.ro.http_client,
-            &self.config.lock().await.l2_rpc_url,
-            &commit_block_number
-        ).await;
+
 
         let pending_block_number = match  self.db.find(KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER) {
             None => {U64::from(0)},
@@ -635,6 +654,23 @@ impl SharedState {
         ).await;
 
 
+        // block submission
+        let mut commit_block_number = match  self.db.find(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER) {
+            None => {U64::from(0)},
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+
+        if true{
+            commit_block_number=pending_block_number-10u64;
+        }
+
+        let commit_block =  get_blocks_number(
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            &commit_block_number
+        ).await;
 
 
 
@@ -652,25 +688,31 @@ impl SharedState {
             log::trace!("blocks to be submitted: {:?}", blocks.len());
             for block in blocks.iter().rev() {
                 log::info!("submit_block: {}", format_block(block));
-                {
-                    let witness = self
-                        .request_witness(&block.number.unwrap())
-                        .await
-                        .expect("witness");
-                    let block_data = witness.input;
-                    let calldata = self
-                        .ro
-                        .bridge_abi
-                        .function("submitBlock")
-                        .unwrap()
-                        .encode_input(&[block_data.into_token()])
-                        .expect("calldata");
 
-                    self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
-                        .await
-                        .expect("receipt");
+                {
+                    if block.transactions.len()>0{
+                        let witness = self
+                            .request_witness(&block.number.unwrap())
+                            .await
+                            .expect("witness");
+                        let block_data = witness.input;
+                        let calldata = self
+                            .ro
+                            .bridge_abi
+                            .function("submitBlock")
+                            .unwrap()
+                            .encode_input(&[block_data.into_token()])
+                            .expect("calldata");
+
+                        self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
+                            .await
+                            .expect("receipt");
+                        log::info!("submited_block: {}", format_block(block));
+                    }
+
                     self.db.save(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER,block.number.unwrap().to_string().as_str());
                 }
+
             }
         }
     }
@@ -691,12 +733,16 @@ impl SharedState {
             &commit_block_number
         ).await;
 
-        let finalize_block_number = match  self.db.find(KEY_COORDINATOR_L2_FINALIZE_BLOCK_NUMBER) {
+        let mut finalize_block_number = match  self.db.find(KEY_COORDINATOR_L2_FINALIZE_BLOCK_NUMBER) {
             None => {U64::from(0)},
             Some(value) => {
                 U64::from(u64::from_str(value.as_str()).unwrap())
             }
         };
+
+        if true{
+            finalize_block_number=commit_block_number-10u64;
+        }
 
         let finalize_block =  get_blocks_number(
             &self.ro.http_client,
@@ -717,7 +763,11 @@ impl SharedState {
 
             log::trace!("blocks for finalization: {:?}", blocks.len());
             for block in blocks.iter().rev() {
-                self.finalize_block(block).await?;
+                if block.transactions.len()>0{
+                    self.finalize_block(block).await?;
+                }else {
+                    self.db.save(KEY_COORDINATOR_L2_FINALIZE_BLOCK_NUMBER,block.number.unwrap().to_string().as_str());
+                }
             }
         }
 
@@ -820,6 +870,7 @@ impl SharedState {
         &self,
         to: Option<Address>,
         value: U256,
+        nonce: U256,
         calldata: Vec<u8>,
         gas_limit: Option<U256>,
     ) -> Result<H256, String> {
@@ -829,6 +880,7 @@ impl SharedState {
             &self.ro.l2_wallet,
             to,
             value,
+            nonce,
             calldata,
             gas_limit,
         )
@@ -880,7 +932,7 @@ impl SharedState {
             .await
             .map_err(|e| e.to_string())?;
         let x = tx.rlp_signed(&sig);
-        log::info!("sign_l2_given_block_tag tx {:?},hash {:?} ",tx.clone(),x.clone());
+        log::info!("sign_l2_given_block_tag tx {:?},hash===== {:?} ",tx.clone(),x.clone());
         Ok(x)
     }
 
@@ -1025,7 +1077,7 @@ impl SharedState {
                 executed_msgs.push(message_id);
             }
 
-            from = to + 1u64;
+            from = to + 100u64;
         }
 
         if last_to_block != U64::zero() {

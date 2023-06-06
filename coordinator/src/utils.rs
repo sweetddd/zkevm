@@ -112,19 +112,21 @@ pub async fn send_transaction_to_l2(
     wallet: &LocalWallet,
     to: Option<Address>,
     value: U256,
+    nonce: U256,
     calldata: Vec<u8>,
     gas_limit: Option<U256>,
 ) -> Result<H256, String> {
     let wallet_addr: Address = wallet.address();
-    let nonce: U256 = jsonrpc_request_client(
-        RPC_REQUEST_TIMEOUT,
-        client,
-        node_uri,
-        "eth_getTransactionCount",
-        (wallet_addr, "latest"),
-    )
-    .await
-    .expect("nonce");
+
+    // let nonce: U256 = jsonrpc_request_client(
+    //     RPC_REQUEST_TIMEOUT,
+    //     client,
+    //     node_uri,
+    //     "eth_getTransactionCount",
+    //     (wallet_addr, "latest"),
+    // )
+    // .await
+    // .expect("nonce");
 
     let gas_price: U256 =
         jsonrpc_request_client(RPC_REQUEST_TIMEOUT, client, node_uri, "eth_gasPrice", ())
