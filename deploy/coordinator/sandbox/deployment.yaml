@@ -81,14 +81,5 @@ spec:
       - name: regcred
       restartPolicy: Always
       dnsPolicy: ClusterFirst
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: kubernetes.io/hostname
-                    operator: In
-                    values:
-                      - node47
   strategy:
     type: Recreate
