@@ -53,7 +53,9 @@ contract ZkEvmL1Bridge is
 
   function submitBlock (bytes calldata witness) external {
     _onlyEOA();
-    emit BlockSubmitted();
+    for(uint i=0; i<witnesses.length; i++) {
+      bytes memory witness = witnesses[i];
+      emit BlockSubmitted();
 
     (
       bytes32 parentBlockHash,
@@ -75,6 +77,7 @@ contract ZkEvmL1Bridge is
     }
     commitments[blockHash] = hash;
     stateRoots[blockHash] = blockStateRoot;
+  }
   }
 
   /// @dev
