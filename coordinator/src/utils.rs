@@ -369,11 +369,11 @@ pub async fn get_blocks_between(
     uri: &Uri,
     from: &H256,
     to: &H256,
-) -> Vec<Block<H256>> {
-    let mut ret: Vec<Block<H256>> = Vec::new();
+) -> Vec<Block<Transaction>> {
+    let mut ret: Vec<Block<Transaction>> = Vec::new();
     let mut hash = *to;
     loop {
-        let block: Block<H256> = jsonrpc_request_client(
+        let block: Block<Transaction> = jsonrpc_request_client(
             RPC_REQUEST_TIMEOUT,
             client,
             uri,
