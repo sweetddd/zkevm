@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use crate::structs::*;
 use crate::timeout;
 use ethers_core::types::transaction::eip2930::AccessListWithGasUsed;
@@ -12,6 +13,7 @@ use ethers_signers::{LocalWallet, Signer};
 use hyper::client::HttpConnector;
 use hyper::Uri;
 use zkevm_common::json_rpc::jsonrpc_request_client;
+use crate::shared_state::Batch;
 
 pub const RPC_REQUEST_TIMEOUT: u64 = 30000;
 
@@ -349,6 +351,16 @@ pub fn format_block<T>(block: &Block<T>) -> String {
         block.transactions.len()
     )
 }
+
+pub fn format_batch(batch: Batch) -> String {
+    format!(
+        "Batch {} {} {}",
+        batch.batch_number,
+        batch.start_block_number,
+        batch.end_block_number,
+    )
+}
+
 
 pub async fn get_chain_head(client: &hyper::Client<HttpConnector>, uri: &Uri) -> BlockHeader {
     let header: BlockHeader = jsonrpc_request_client(

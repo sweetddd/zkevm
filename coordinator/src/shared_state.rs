@@ -18,8 +18,8 @@ use ethers_signers::Signer;
 use hyper::client::HttpConnector;
 use hyper::Uri;
 use serde::de::DeserializeOwned;
-use serde::Serialize;
-use std::{cmp, env};
+use serde::{Serialize, Deserialize};
+use std::{cmp, env, vec};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::str::FromStr;
@@ -46,7 +46,7 @@ const KEY_COORDINATOR_L2_COMMIT_BATCH_NUMBER: &str = "coordinator_l2_commit_batc
 
 
 #[derive(Serialize, Deserialize, Debug)]
-enum Status {
+pub enum Status {
     Pending,
     Submitted,
     Finalized,
@@ -732,8 +732,8 @@ impl SharedState {
                                 };
 
                                 batch.batch_number+=U64::from(1);
-                                batch.end_block_number= block.number-U64::from(1);
-                                batch.start_block_number= block.number-U64::from(i-1);
+                                batch.end_block_number= block.number.unwrap()-U64::from(1);
+                                batch.start_block_number= block.number.unwrap()-U64::from(i-1);
                                 batch.blocks=batch.end_block_number-batch.start_block_number+1;
 
                                 let batch_json=serde_json::to_string(&batch).unwrap();
@@ -769,6 +769,7 @@ impl SharedState {
         };
 
         let mut batch_num = commit_batch_number;
+        let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
 
         loop {
             batch_num += U64::from(1);
@@ -777,17 +778,27 @@ impl SharedState {
                 break;
             }
 
-            let batch: Batch = match self.db.find(batch_num.to_string().as_ref()) {
-                None => {
-                    Batch::default()
-                },
-                Some(value) => {
-                    serde_json::from_str(value.as_str())
+            // let batch: Batch = match self.db.find(batch_num.to_string().as_ref()) {
+            //     None => {
+            //         Batch::default()
+            //     },
+            //     Some(value) => {
+            //         serde_json::from_str(value.as_str())
+            //     }
+            // };
+
+            let mut batch:Batch = Batch::default();
+
+            let mut batch_db =  self.db.find(batch_num.to_string().as_ref());
+                if batch_db == None {
+                    log::info!("db fing batch None with batch_num: {}", batch_num.to_string());
+                }else  {
+                     batch =   serde_json::from_str(batch_db.unwrap().as_str()).unwrap();
                 }
-            };
 
             let mut block_num = batch.start_block_number;
-            let mut blocks_data: Vec<Bytes>;
+            let mut blocks_data: Vec<Bytes>=Vec::new();
+
 
             loop {
                 block_num += U64::from(1);
@@ -797,13 +808,15 @@ impl SharedState {
                 }
 
                 let witness = self
-                    .request_witness(block_num.unwrap())
+                    .request_witness(&block_num)
                     .await
                     .expect("witness");
 
                 let block_data = witness.input;
                 blocks_data.push(block_data);
             }
+
+            let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
 
             let calldata = self
                 .ro
@@ -816,16 +829,12 @@ impl SharedState {
             self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
                 .await
                 .expect("receipt");
-            log::info!("submited_block: {}", format_block(block));
+            log::info!("submited_batch: {}", format_batch(batch));
 
 
             self.db.save(KEY_COORDINATOR_L2_COMMIT_BATCH_NUMBER, pending_batch_number.to_string().as_str());
         }
     }
-
-
-
-
 
 
     pub async fn finalize_blocks(&self) -> Result<(), String> {
@@ -885,7 +894,7 @@ impl SharedState {
         Ok(())
     }
 
-    pub async fn finalize_block(&self, block: &Block<H256>) -> Result<(), String> {
+    pub async fn finalize_block(&self, block: &Block<Transaction>) -> Result<(), String> {
         const LOG_TAG: &str = "L1:finalize_block:";
         log::trace!("{} {}", LOG_TAG, format_block(block));
 
@@ -1210,7 +1219,7 @@ impl SharedState {
                 executed_msgs.push(message_id);
             }
 
-            from = to + 100u64;
+            from = to + 1000u64;
         }
 
         if last_to_block != U64::zero() {
