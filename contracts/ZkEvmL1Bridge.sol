@@ -51,10 +51,10 @@ contract ZkEvmL1Bridge is
     result = _buildCommitment(MAX_TXS, MAX_CALLDATA, chainId, parentStateRoot, witness, true);
   }
 
-  function submitBlock (bytes calldata witness) external {
+  function submitBlock (bytes[] calldata witnesses) external {
     _onlyEOA();
     for(uint i=0; i<witnesses.length; i++) {
-      bytes memory witness = witnesses[i];
+      bytes calldata witness = witnesses[i];
       emit BlockSubmitted();
 
     (

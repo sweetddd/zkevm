@@ -26,6 +26,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
 use ethers_core::k256::elliptic_curve::consts::U6;
+use hyper::http::status;
 use log::log;
 use tokio::sync::Mutex;
 use zkevm_common::json_rpc::jsonrpc_request;
@@ -37,13 +38,12 @@ use zkevm_common::db_utils::{KVStore, RocksDB};
 const KEY_COORDINATOR_L1_BLOCK_NUMBER: &str = "coordinator_l1_block_number";
 const KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER: &str = "coordinator_l2_pending_block_number";
 const KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER: &str = "coordinator_l2_commit_block_number";
+const KEY_COORDINATOR_L2_BATCH_END_BLOCK_NUMBER: &str = "coordinator_l2_batch_end_block_number";
 const KEY_COORDINATOR_L2_FINALIZE_BLOCK_NUMBER: &str = "coordinator_l2_finalize_block_number";
 const KEY_COORDINATOR_L1_MESSAGE_QUEUE: &str = "coordinator_l1_message_queue";
 const KEY_COORDINATOR_L1_DELIVERED_MESSAGE: &str = "coordinator_l1_delivered_messages";
 const KEY_COORDINATOR_L2_PENDING_BATCH_NUMBER: &str = "coordinator_l2_pending_batch_number";
 const KEY_COORDINATOR_L2_COMMIT_BATCH_NUMBER: &str = "coordinator_l2_commit_batch_number";
-
-
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Status {
@@ -56,15 +56,15 @@ pub enum Status {
 pub struct Batch {
     pub batch_number: U64,
     pub status: Status,
-    pub time: u64,
+    pub time: U256,
     pub transactions: U64,
     pub blocks: U64,
     pub start_block_number: U64,
     pub end_block_number: U64,
     pub commit_tx_hash: H256,
-    pub commit_time: u64,
+    pub commit_time: U256,
     pub finalized_tx_hash: H256,
-    pub finalized_time: u64,
+    pub finalized_time: U256,
 }
 
 impl Default for Batch {
@@ -72,16 +72,75 @@ impl Default for Batch {
         Batch{
             batch_number: Default::default(),
             status: Status::Pending,
-            time: 0,
+            time: U256::zero(),
             transactions: Default::default(),
             blocks: Default::default(),
             start_block_number: Default::default(),
             end_block_number: Default::default(),
             commit_tx_hash: Default::default(),
-            commit_time: 0,
+            commit_time: U256::zero(),
             finalized_tx_hash: Default::default(),
-            finalized_time: 0,
+            finalized_time: U256::zero(),
         }
+    }
+}
+
+pub trait Batcher {
+    fn latest_batch_number(&self) -> U64;
+    fn batch_list(&self) -> Vec<Batch>;
+    fn get_batch_by_num(&self,num:&U64) ->Batch;
+}
+
+impl Batcher for SharedState{
+
+    fn latest_batch_number(&self) -> U64 {
+
+        let latest_batch_number = match self.db.find(KEY_COORDINATOR_L2_PENDING_BATCH_NUMBER) {
+            None => { U64::from(0) },
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+        return latest_batch_number
+    }
+
+    fn batch_list(&self) -> Vec<Batch> {
+
+        let latest_batch_number = match self.db.find(KEY_COORDINATOR_L2_PENDING_BATCH_NUMBER) {
+            None => { U64::from(0) },
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+
+        let mut batches: Vec<Batch> = Vec::new();
+
+        for i in 0..=latest_batch_number.as_u64() {
+
+            let mut batch:Batch = Batch::default();
+
+            let mut batch_db =  self.db.find(i.to_string().as_ref());
+            if batch_db == None {
+                log::info!("db fing batch None with batch_num: {}", i.to_string());
+            }else  {
+                batch =   serde_json::from_str(batch_db.unwrap().as_str()).unwrap();
+            }
+            batches.push(batch);
+        }
+        return batches;
+    }
+
+    fn get_batch_by_num(&self,num: &U64) -> Batch {
+
+        let mut batch:Batch = Batch::default();
+
+        let mut batch_db =  self.db.find(num.to_string().as_ref());
+        if batch_db == None {
+            log::info!("db fing batch None with batch_num: {}", num.to_string());
+        }else  {
+            batch =   serde_json::from_str(batch_db.unwrap().as_str()).unwrap();
+        }
+        return batch;
     }
 }
 
@@ -220,7 +279,7 @@ impl SharedState {
         chain_state.safe_block_hash = h;
         chain_state.finalized_block_hash = h;
 
-        let mut commit_block_number = match  self.db.find(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER) {
+        let mut batch_end_block_number = match  self.db.find(KEY_COORDINATOR_L2_BATCH_END_BLOCK_NUMBER) {
             None => {U64::from(0)},
             Some(value) => {
                 U64::from(u64::from_str(value.as_str()).unwrap())
@@ -231,7 +290,7 @@ impl SharedState {
         //     .call_fn_l1("stateRoots", &[genesis.hash.unwrap().into_token()])
         //     .await
         //     .map_err(|e| println!("error ")).unwrap();
-        if commit_block_number.as_u64() == 0 {
+        if batch_end_block_number.as_u64() == 0 {
             log::info!("init l1 bridge");
             let block_hash = genesis.hash.unwrap();
             let state_root = genesis.state_root;
@@ -387,8 +446,6 @@ impl SharedState {
                 continue;
             }
         }
-
-
 
         let x = to.clone().to_string();
         self.db.save(KEY_COORDINATOR_L1_BLOCK_NUMBER,x.clone().as_str());
@@ -654,12 +711,37 @@ impl SharedState {
 
 
     pub async fn generate_batchs (&self) {
-        let pending_block_number = match self.db.find(KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER) {
+
+        // block submission
+        let mut batch_end_block_number = match self.db.find(KEY_COORDINATOR_L2_BATCH_END_BLOCK_NUMBER) {
             None => { U64::from(0) },
             Some(value) => {
                 U64::from(u64::from_str(value.as_str()).unwrap())
             }
         };
+
+        let env_commit = env::var("BATCH_END_BLOCK_NUMBER");
+        if env_commit.is_ok() {
+            let env_number =  U64::from(u64::from_str(env_commit.unwrap().as_str()).unwrap());
+            // if env_number.gt(&commit_block_number) {
+            batch_end_block_number = env_number;
+            // }
+        }
+
+        let batch_end_block = get_blocks_number(
+            &self.ro.http_client,
+            &self.config.lock().await.l2_rpc_url,
+            &batch_end_block_number
+        ).await;
+
+        let mut pending_block_number = match self.db.find(KEY_COORDINATOR_L2_PENDING_BLOCK_NUMBER) {
+            None => { U64::from(0) },
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+
+        pending_block_number=batch_end_block_number+U64::from(32);
 
         let pending_block = get_blocks_number(
             &self.ro.http_client,
@@ -668,27 +750,12 @@ impl SharedState {
         ).await;
 
 
-        // block submission
-        let mut commit_block_number = match self.db.find(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER) {
-            None => { U64::from(0) },
-            Some(value) => {
-                U64::from(u64::from_str(value.as_str()).unwrap())
-            }
-        };
-
-        let commit_block = get_blocks_number(
-            &self.ro.http_client,
-            &self.config.lock().await.l2_rpc_url,
-            &commit_block_number
-        ).await;
-
-
-        if pending_block_number != commit_block_number {
+        if pending_block_number != batch_end_block_number {
             // find all the blocks since `safe_hash`
             let blocks = get_blocks_between(
                 &self.ro.http_client,
                 &self.config.lock().await.l2_rpc_url,
-                &commit_block.hash.unwrap(),
+                &batch_end_block.hash.unwrap(),
                 &pending_block.hash.unwrap(),
             )
                 .await;
@@ -700,13 +767,33 @@ impl SharedState {
 
             let mut batch_gas_used = U256::zero();
             let mut batch_gas_limit = U256::zero();
-            let mut txs_num=U64::zero();
+
+            let env_batch_gas_limit = env::var("BATCH_GAS_LIMIT");
+            if env_batch_gas_limit.is_ok() {
+                let env_limit =  U256::from(u64::from_str(env_batch_gas_limit.unwrap().as_str()).unwrap());
+                    batch_gas_limit = env_limit;
+            }
+
+            let mut txs_num=U64::from(1);
             let mut i = 0;
             let mut latest_tx_hash: H256;
+            let mut batch = Batch {
+                batch_number: U64::from(0),
+                status: Status::Pending,
+                time: U256::zero(),
+                transactions: U64::zero(),
+                blocks: U64::zero(),
+                start_block_number: U64::zero(),
+                end_block_number: U64::zero(),
+                commit_tx_hash: Default::default(),
+                commit_time: U256::zero(),
+                finalized_tx_hash: Default::default(),
+                finalized_time: U256::zero(),
+            };
 
 
             for block in blocks.iter().rev() {
-                log::info!("submit_block: {}", format_block(block));
+                log::info!("block: {}", format_block(block));
                 {
                             if block.transactions.len()>0{
                                 batch_gas_used += block.gas_used;
@@ -717,35 +804,32 @@ impl SharedState {
                                 // let mut tx = trans.get(0).unwrap();
                                 // let endblock=&block_msg[i];
 
-                                let mut batch = Batch {
-                                    batch_number: U64::zero(),
-                                    status: Status::Pending,
-                                    time: timestamp(),
-                                    transactions: txs_num,
-                                    blocks: U64::zero(),
-                                    start_block_number: U64::zero(),
-                                    end_block_number: U64::zero(),
-                                    commit_tx_hash: Default::default(),
-                                    commit_time: 0,
-                                    finalized_tx_hash: Default::default(),
-                                    finalized_time: 0,
-                                };
-
                                 batch.batch_number+=U64::from(1);
+                                batch.time=U256::from(timestamp());
+                                if batch_gas_used==block.gas_used{
+                                    batch.transactions=U64::from(block.transactions.len());
+                                }
                                 batch.end_block_number= block.number.unwrap()-U64::from(1);
-                                batch.start_block_number= block.number.unwrap()-U64::from(i-1);
+                                batch.start_block_number= block.number.unwrap()-U64::from(i);
                                 batch.blocks=batch.end_block_number-batch.start_block_number+1;
 
                                 let batch_json=serde_json::to_string(&batch).unwrap();
+                                self.db.save(KEY_COORDINATOR_L2_PENDING_BATCH_NUMBER,batch.batch_number.to_string().as_str());
                                 self.db.save(batch.batch_number.to_string().as_str(),batch_json.as_str());
-                                self.db.save(KEY_COORDINATOR_L2_COMMIT_BLOCK_NUMBER,block.number.unwrap().to_string().as_str());
+                                self.db.save(KEY_COORDINATOR_L2_BATCH_END_BLOCK_NUMBER,(block.number.unwrap()-U64::from(1)).to_string().as_str());
 
-                                batch_gas_used=U256::zero();
-                                txs_num=U64::zero();
-                                i=0;
-                                break;
+                                if batch_gas_used==block.gas_used {
+                                    batch_gas_used = U256::zero();
+                                    batch.transactions=U64::zero();
+                                    i=0;
+                                }else {
+                                    batch_gas_used=block.gas_used;
+                                    batch.transactions=U64::from(block.transactions.len());
+                                    i=1;
+                                }
+                                continue;
                             }
-                            txs_num+=U64::from(block.transactions.len());
+                            batch.transactions+=U64::from(block.transactions.len());
                             i+=1;
                 }
             }
@@ -778,6 +862,8 @@ impl SharedState {
                 break;
             }
 
+            let mut batch:Batch = Batch::default();
+
             // let batch: Batch = match self.db.find(batch_num.to_string().as_ref()) {
             //     None => {
             //         Batch::default()
@@ -787,8 +873,6 @@ impl SharedState {
             //     }
             // };
 
-            let mut batch:Batch = Batch::default();
-
             let mut batch_db =  self.db.find(batch_num.to_string().as_ref());
                 if batch_db == None {
                     log::info!("db fing batch None with batch_num: {}", batch_num.to_string());
@@ -796,24 +880,41 @@ impl SharedState {
                      batch =   serde_json::from_str(batch_db.unwrap().as_str()).unwrap();
                 }
 
-            let mut block_num = batch.start_block_number;
             let mut blocks_data: Vec<Bytes>=Vec::new();
 
+            let batch_start_block = get_blocks_number(
+                &self.ro.http_client,
+                &self.config.lock().await.l2_rpc_url,
+                &(batch.start_block_number-U64::from(1))
+            ).await;
 
-            loop {
-                block_num += U64::from(1);
+            let batch_end_block = get_blocks_number(
+                &self.ro.http_client,
+                &self.config.lock().await.l2_rpc_url,
+                &batch.end_block_number
+            ).await;
 
-                if block_num > batch.end_block_number {
-                    break;
+            //get batch_blocks
+            let batch_blocks = get_blocks_between(
+                &self.ro.http_client,
+                &self.config.lock().await.l2_rpc_url,
+                &batch_start_block.hash.unwrap(),
+                &batch_end_block.hash.unwrap(),
+            )
+                .await;
+
+
+            for batch_block in batch_blocks.iter().rev() {
+
+                if batch_block.transactions.len()>0{
+                    let witness = self
+                        .request_witness(&batch_block.number.unwrap())
+                        .await
+                        .expect("witness");
+
+                    let block_data = witness.input;
+                    blocks_data.push(block_data);
                 }
-
-                let witness = self
-                    .request_witness(&block_num)
-                    .await
-                    .expect("witness");
-
-                let block_data = witness.input;
-                blocks_data.push(block_data);
             }
 
             let l1_bridge_addr = Some(self.config.lock().await.l1_bridge);
@@ -826,14 +927,21 @@ impl SharedState {
                 .encode_input(&[blocks_data.into_token()])
                 .expect("calldata");
 
-            self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
+            let res=self.transaction_to_l1(l1_bridge_addr, U256::zero(), calldata)
                 .await
                 .expect("receipt");
+
+            batch.commit_time=U256::from(timestamp());
+            batch.commit_tx_hash=res.transaction_hash;
+            batch.status=Status::Submitted;
+
+            let batch_json=serde_json::to_string(&batch).unwrap();
+            self.db.save(batch.batch_number.to_string().as_str(),batch_json.as_str());
+
             log::info!("submited_batch: {}", format_batch(batch));
 
-
-            self.db.save(KEY_COORDINATOR_L2_COMMIT_BATCH_NUMBER, pending_batch_number.to_string().as_str());
         }
+        self.db.save(KEY_COORDINATOR_L2_COMMIT_BATCH_NUMBER, pending_batch_number.to_string().as_str());
     }
 
 
@@ -894,7 +1002,7 @@ impl SharedState {
         Ok(())
     }
 
-    pub async fn finalize_block(&self, block: &Block<Transaction>) -> Result<(), String> {
+    pub async fn finalize_block(&self, block: &Block<H256>) -> Result<(), String> {
         const LOG_TAG: &str = "L1:finalize_block:";
         log::trace!("{} {}", LOG_TAG, format_block(block));
 
@@ -1460,7 +1568,6 @@ impl SharedState {
             randomness: U256::zero(),
             input: Bytes::from(witness),
         };
-
         Ok(witness)
     }
 
@@ -1567,7 +1674,7 @@ fn get_abi() -> Abi {
             "event BlockFinalized(bytes32 blockHash)",
             "event MessageDispatched(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data)",
             "event MessageDelivered(bytes32 id)",
-            "function submitBlock(bytes)",
+            "function submitBlock(bytes[])",
             "function finalizeBlock(bytes proof)",
             "function deliverMessageWithProof(address from, address to, uint256 value, uint256 fee, uint256 deadline, uint256 nonce, bytes data, bytes proof)",
             "function stateRoots(bytes32 blockHash) returns (bytes32)",

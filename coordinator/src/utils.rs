@@ -354,7 +354,7 @@ pub fn format_block<T>(block: &Block<T>) -> String {
 
 pub fn format_batch(batch: Batch) -> String {
     format!(
-        "Batch {} {} {}",
+        "Batch_num:{}:start_block_number:{},end_block_number:{}",
         batch.batch_number,
         batch.start_block_number,
         batch.end_block_number,
@@ -381,11 +381,11 @@ pub async fn get_blocks_between(
     uri: &Uri,
     from: &H256,
     to: &H256,
-) -> Vec<Block<Transaction>> {
-    let mut ret: Vec<Block<Transaction>> = Vec::new();
+) -> Vec<Block<H256>> {
+    let mut ret: Vec<Block<H256>> = Vec::new();
     let mut hash = *to;
     loop {
-        let block: Block<Transaction> = jsonrpc_request_client(
+        let block: Block<H256> = jsonrpc_request_client(
             RPC_REQUEST_TIMEOUT,
             client,
             uri,

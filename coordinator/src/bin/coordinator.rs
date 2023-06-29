@@ -2,7 +2,7 @@ use std::env;
 use clap::Parser;
 use coordinator::config::Config;
 use coordinator::faucet::Faucet;
-use coordinator::shared_state::SharedState;
+use coordinator::shared_state::{Batcher, SharedState};
 use coordinator::utils::*;
 use env_logger::Env;
 use ethers_core::types::{Address, U64};
@@ -347,6 +347,54 @@ async fn handle_method(
             // return the current configuration
             Ok(serde_json::to_value(config).unwrap())
         }
+
+        "latest_batch_number" => {
+            if !shared_state.config.lock().await.unsafe_rpc {
+                return Err("this method is disabled".to_string());
+            }
+
+            let latest_batch_number =shared_state.latest_batch_number();
+
+            Ok(serde_json::to_value(latest_batch_number).unwrap())
+        }
+
+        "batch_list" => {
+            if !shared_state.config.lock().await.unsafe_rpc {
+                return Err("this method is disabled".to_string());
+            }
+
+            let latest_batch_number =shared_state.batch_list();
+
+            Ok(serde_json::to_value(latest_batch_number).unwrap())
+        }
+
+        "get_batch_by_num" => {
+            if !shared_state.config.lock().await.unsafe_rpc {
+                return Err("this method is disabled".to_string());
+            }
+
+            let num = match params.get(0) {
+                Some(options) => {
+                    let options: U64 =
+                        // serde_json::from_value(options.to_owned()).map_err(|e| e.to_string())?;
+                        serde_json::from_value(options.to_owned()).unwrap();
+
+                    options
+                }
+                None =>{
+                    log::info!("Params is none");
+                    let latest_batch_number =shared_state.latest_batch_number();
+                    latest_batch_number
+                },
+            };
+
+            let latest_batch_number =shared_state.get_batch_by_num(&num);
+
+            Ok(serde_json::to_value(latest_batch_number).unwrap())
+        }
+
+
+
 
         _ => Err("this method is not available".to_string()),
     }
