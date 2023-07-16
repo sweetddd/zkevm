@@ -318,8 +318,8 @@ async fn event_loop(ctx: SharedState, _client: hyper::Client<HttpConnector>) {
     ctx.mine().await;
     ctx.generate_batchs().await;
     ctx.submit_batchs().await;
-    ctx.finalize_blocks().await.expect("finalize_blocks");
-    ctx.relay_to_l1().await;
+    // ctx.finalize_blocks().await.expect("finalize_blocks");
+    // ctx.relay_to_l1().await;
 }
 
 async fn handle_method(
@@ -348,24 +348,45 @@ async fn handle_method(
             Ok(serde_json::to_value(config).unwrap())
         }
 
-        "latest_batch_number" => {
+        "get_latest_pending_batch_num" => {
             if !shared_state.config.lock().await.unsafe_rpc {
                 return Err("this method is disabled".to_string());
             }
 
-            let latest_batch_number =shared_state.latest_batch_number();
+            let latest_batch_number =shared_state.get_latest_pending_batch_num();
 
             Ok(serde_json::to_value(latest_batch_number).unwrap())
         }
 
-        "batch_list" => {
+        "get_latest_submitted_batch_num" => {
             if !shared_state.config.lock().await.unsafe_rpc {
                 return Err("this method is disabled".to_string());
             }
 
-            let latest_batch_number =shared_state.batch_list();
+            let latest_batch_number =shared_state.get_latest_submitted_batch_num();
 
             Ok(serde_json::to_value(latest_batch_number).unwrap())
+        }
+
+        "get_latest_finalized_batch_num" => {
+            if !shared_state.config.lock().await.unsafe_rpc {
+                return Err("this method is disabled".to_string());
+            }
+
+            let latest_batch_number =shared_state.get_latest_finalized_batch_num();
+
+            Ok(serde_json::to_value(latest_batch_number).unwrap())
+        }
+
+
+        "get_batch_list" => {
+            if !shared_state.config.lock().await.unsafe_rpc {
+                return Err("this method is disabled".to_string());
+            }
+
+            let batch_list =shared_state.get_batch_list();
+
+            Ok(serde_json::to_value(batch_list).unwrap())
         }
 
         "get_batch_by_num" => {
@@ -383,14 +404,14 @@ async fn handle_method(
                 }
                 None =>{
                     log::info!("Params is none");
-                    let latest_batch_number =shared_state.latest_batch_number();
+                    let latest_batch_number =shared_state.get_latest_pending_batch_num();
                     latest_batch_number
                 },
             };
 
-            let latest_batch_number =shared_state.get_batch_by_num(&num);
+            let batch =shared_state.get_batch_by_num(&num);
 
-            Ok(serde_json::to_value(latest_batch_number).unwrap())
+            Ok(serde_json::to_value(batch).unwrap())
         }
 
 

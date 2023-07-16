@@ -86,14 +86,16 @@ impl Default for Batch {
 }
 
 pub trait Batcher {
-    fn latest_batch_number(&self) -> U64;
-    fn batch_list(&self) -> Vec<Batch>;
+    fn get_latest_pending_batch_num(&self) -> U64;
+    fn get_latest_submitted_batch_num(&self) -> U64;
+    fn get_latest_finalized_batch_num(&self) -> U64;
+    fn get_batch_list(&self) -> Vec<Batch>;
     fn get_batch_by_num(&self,num:&U64) ->Batch;
 }
 
 impl Batcher for SharedState{
 
-    fn latest_batch_number(&self) -> U64 {
+    fn get_latest_pending_batch_num(&self) -> U64 {
 
         let latest_batch_number = match self.db.find(KEY_COORDINATOR_L2_PENDING_BATCH_NUMBER) {
             None => { U64::from(0) },
@@ -104,7 +106,33 @@ impl Batcher for SharedState{
         return latest_batch_number
     }
 
-    fn batch_list(&self) -> Vec<Batch> {
+    fn get_latest_submitted_batch_num(&self) -> U64 {
+
+        let latest_batch_number = match self.db.find(KEY_COORDINATOR_L2_COMMIT_BATCH_NUMBER) {
+            None => { U64::from(0) },
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+        return latest_batch_number
+    }
+
+    fn get_latest_finalized_batch_num(&self) -> U64 {
+
+        let latest_batch_number = match self.db.find(KEY_COORDINATOR_L2_COMMIT_BATCH_NUMBER) {
+            None => { U64::from(0) },
+            Some(value) => {
+                U64::from(u64::from_str(value.as_str()).unwrap())
+            }
+        };
+        return latest_batch_number
+    }
+
+
+
+
+
+    fn get_batch_list(&self) -> Vec<Batch> {
 
         let latest_batch_number = match self.db.find(KEY_COORDINATOR_L2_PENDING_BATCH_NUMBER) {
             None => { U64::from(0) },
@@ -115,7 +143,7 @@ impl Batcher for SharedState{
 
         let mut batches: Vec<Batch> = Vec::new();
 
-        for i in 0..=latest_batch_number.as_u64() {
+        for i in 1..=latest_batch_number.as_u64() {
 
             let mut batch:Batch = Batch::default();
 
@@ -125,6 +153,16 @@ impl Batcher for SharedState{
             }else  {
                 batch =   serde_json::from_str(batch_db.unwrap().as_str()).unwrap();
             }
+
+            let mut batch1:Batch = Batch::default();
+
+            let mut batch_db =  self.db.find(batch.batch_number.to_string().as_ref());
+            if batch_db == None {
+                log::info!("db fing batch None with batch_num: {}", batch.batch_number.to_string());
+            }else  {
+                batch1 =   serde_json::from_str(batch_db.unwrap().as_str()).unwrap();
+            }
+
             batches.push(batch);
         }
         return batches;
@@ -723,7 +761,7 @@ impl SharedState {
         let env_commit = env::var("BATCH_END_BLOCK_NUMBER");
         if env_commit.is_ok() {
             let env_number =  U64::from(u64::from_str(env_commit.unwrap().as_str()).unwrap());
-            // if env_number.gt(&commit_block_number) {
+            // if env_number.gt(&batch_end_block_number) {
             batch_end_block_number = env_number;
             // }
         }
@@ -741,7 +779,7 @@ impl SharedState {
             }
         };
 
-        pending_block_number=batch_end_block_number+U64::from(32);
+        pending_block_number=batch_end_block_number+U64::from(40);
 
         let pending_block = get_blocks_number(
             &self.ro.http_client,
@@ -750,7 +788,7 @@ impl SharedState {
         ).await;
 
 
-        if pending_block_number != batch_end_block_number {
+        if pending_block_number == batch_end_block_number {
             // find all the blocks since `safe_hash`
             let blocks = get_blocks_between(
                 &self.ro.http_client,
@@ -937,6 +975,17 @@ impl SharedState {
 
             let batch_json=serde_json::to_string(&batch).unwrap();
             self.db.save(batch.batch_number.to_string().as_str(),batch_json.as_str());
+
+            // let mut batch1:Batch = Batch::default();
+            //
+            // let mut batch_db =  self.db.find(batch.batch_number.to_string().as_ref());
+            // if batch_db == None {
+            //     log::info!("db fing batch None with batch_num: {}", batch.batch_number.to_string());
+            // }else  {
+            //     batch1 =   serde_json::from_str(batch_db.unwrap().as_str()).unwrap();
+            // }
+
+
 
             log::info!("submited_batch: {}", format_batch(batch));
 

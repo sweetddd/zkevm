@@ -354,7 +354,7 @@ pub fn format_block<T>(block: &Block<T>) -> String {
 
 pub fn format_batch(batch: Batch) -> String {
     format!(
-        "Batch_num:{}:start_block_number:{},end_block_number:{}",
+        "Batch_num:{}, start_block_number:{}, end_block_number:{}",
         batch.batch_number,
         batch.start_block_number,
         batch.end_block_number,
