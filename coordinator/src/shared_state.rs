@@ -788,7 +788,7 @@ impl SharedState {
         ).await;
 
 
-        if pending_block_number == batch_end_block_number {
+        if pending_block_number != batch_end_block_number {
             // find all the blocks since `safe_hash`
             let blocks = get_blocks_between(
                 &self.ro.http_client,

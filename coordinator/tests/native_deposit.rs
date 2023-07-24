@@ -42,7 +42,11 @@ async fn native_deposit() {
             let nonce: U256 = rand::random::<usize>().into();
             let data = Bytes::from([]);
 
-            let calldata = abi
+            log::info!("======form: {} to: {} ", from.to_string(), to.to_string());
+
+
+
+        let calldata = abi
                 .function("dispatchMessage")
                 .unwrap()
                 .encode_input(&[

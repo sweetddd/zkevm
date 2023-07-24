@@ -203,7 +203,10 @@ macro_rules! finalize_chain {
             drop(rw);
 
             sync!($shared_state);
-            $shared_state.submit_blocks().await;
+            // $shared_state.submit_blocks().await;
+            $shared_state.generate_batchs().await;
+            $shared_state.submit_batchs().await;
+
             let dummy_prover = $shared_state.config.lock().await.dummy_prover;
             if $use_dummy {
                 $shared_state.config.lock().await.dummy_prover = true;
